@@ -7,6 +7,7 @@ import { fetchElevationBatch, fetchSurroundingTerrain } from './services/elevati
 import { fetchGeologicalInfo } from './services/geologicalApi'
 import { getAnomalyColor, getAnomalyLabel } from './services/anomalyEngine'
 import { generateContours, generateHeatmapData } from './utils/contour'
+import { fetchAnomalyData, saveToLocalCache, loadFromLocalCache } from './services/supabaseApi'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
@@ -219,6 +220,12 @@ export default function App() {
   // GPS points (from file upload or tracking)
   const [gpsPoints, setGpsPoints] = useState([])
 
+  // Satellite anomaly data (from GEE)
+  const [satelliteAnomalies, setSatelliteAnomalies] = useState([])
+  const [satelliteMetadata, setSatelliteMetadata] = useState(null)
+  const [showSatelliteData, setShowSatelliteData] = useState(false)
+  const [satelliteLoading, setSatelliteLoading] = useState(false)
+
   const mapRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -305,6 +312,41 @@ export default function App() {
     setScanProgress(100)
   }
 
+  // === LOAD SATELLITE DATA ===
+  const loadSatelliteData = async () => {
+    setSatelliteLoading(true)
+    try {
+      // Try to fetch from Supabase first
+      let data = await fetchAnomalyData()
+      
+      if (!data) {
+        // Fallback to local cache
+        data = loadFromLocalCache()
+      }
+      
+      if (!data) {
+        // Fallback to bundled sample data
+        const response = await fetch('/anomaly_data.json')
+        data = await response.json()
+        saveToLocalCache(data)
+      }
+      
+      setSatelliteAnomalies(data.anomalies || [])
+      setSatelliteMetadata(data.metadata || null)
+      setShowSatelliteData(true)
+      
+      // Center map on data if available
+      if (data.metadata?.bbox && mapRef.current) {
+        const [west, south, east, north] = data.metadata.bbox
+        mapRef.current.fitBounds([[south, west], [north, east]])
+      }
+    } catch (error) {
+      console.error('Failed to load satellite data:', error)
+      alert('Gagal memuat data satelit. Pastikan koneksi internet aktif.')
+    }
+    setSatelliteLoading(false)
+  }
+
   // Click anomaly to see details
   const selectAnomaly = async (anomaly) => {
     setSelectedAnomaly(anomaly)
@@ -382,7 +424,7 @@ export default function App() {
           {!sidebarCollapsed && (
             <>
               <div className="tab-bar">
-                {[['scan','🔍 Scan'],['results','📊 Hasil'],['mineral',' Mineral'],['export','💾 Export']].map(([k,l]) => (
+                {[['scan','🔍 Scan'],['satellite','🛰️ Satelit'],['results','📊 Hasil'],['mineral',' Mineral'],['export','💾 Export']].map(([k,l]) => (
                   <button key={k} className={`tab-btn ${activeTab===k?'active':''}`} onClick={() => setActiveTab(k)}>{l}</button>
                 ))}
               </div>
@@ -477,6 +519,101 @@ export default function App() {
                       <p>GPX / KML / CSV</p>
                     </label>
                   </div>
+                </>)}
+
+                {/* ===== SATELLITE TAB ===== */}
+                {activeTab === 'satellite' && (<>
+                  <div className="card" style={{ borderColor: 'var(--accent)', borderWidth: 2 }}>
+                    <div className="card-title" style={{ color: 'var(--accent)', fontSize: 14 }}>
+                      🛰️ Data Anomali Satelit Sentinel-2
+                    </div>
+                    <p className="card-desc">
+                      Data REAL dari citra satelit Sentinel-2 (Google Earth Engine).
+                      Menghitung indeks Oksida Besi (B4/B2) untuk deteksi deposit mineral.
+                    </p>
+                    
+                    <button 
+                      className={`btn ${satelliteLoading ? 'btn-danger' : 'btn-success'} btn-block`} 
+                      onClick={loadSatelliteData} 
+                      disabled={satelliteLoading}
+                      style={{ padding: 12, fontSize: 14 }}
+                    >
+                      {satelliteLoading ? '⏳ Memuat data satelit...' : '📡 MUAT DATA SATELIT'}
+                    </button>
+                    
+                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
+                       Data dari: Sentinel-2 Level 2A | Indeks: Iron Oxide (B4/B2) | Resolusi: 20m
+                    </p>
+                  </div>
+
+                  {satelliteMetadata && (
+                    <div className="card">
+                      <div className="card-title">Metadata Data</div>
+                      <div className="info-panel">
+                        <div className="info-row"><span className="info-label">Area</span><span className="info-value">{satelliteMetadata.area}</span></div>
+                        <div className="info-row"><span className="info-label">Satelit</span><span className="info-value">{satelliteMetadata.satellite}</span></div>
+                        <div className="info-row"><span className="info-label">Indeks</span><span className="info-value">{satelliteMetadata.index}</span></div>
+                        <div className="info-row"><span className="info-label">Total Titik</span><span className="info-value">{satelliteMetadata.total_points}</span></div>
+                        <div className="info-row"><span className="info-label">Tanggal</span><span className="info-value">{new Date(satelliteMetadata.date_processed).toLocaleDateString('id-ID')}</span></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {satelliteAnomalies.length > 0 && (
+                    <>
+                      <div className="card">
+                        <div className="card-title">Statistik Anomali</div>
+                        <div className="stats-grid">
+                          <div className="stat-card">
+                            <div className="stat-value" style={{ color: 'var(--red)' }}>
+                              {satelliteAnomalies.filter(a => a.anomaly_level === 'critical').length}
+                            </div>
+                            <div className="stat-label">Kritis</div>
+                          </div>
+                          <div className="stat-card">
+                            <div className="stat-value" style={{ color: 'var(--orange)' }}>
+                              {satelliteAnomalies.filter(a => a.anomaly_level === 'high').length}
+                            </div>
+                            <div className="stat-label">Tinggi</div>
+                          </div>
+                          <div className="stat-card">
+                            <div className="stat-value" style={{ color: 'var(--yellow)' }}>
+                              {satelliteAnomalies.filter(a => a.anomaly_level === 'moderate').length}
+                            </div>
+                            <div className="stat-label">Moderat</div>
+                          </div>
+                          <div className="stat-card">
+                            <div className="stat-value" style={{ color: 'var(--green)' }}>
+                              {satelliteAnomalies.filter(a => a.anomaly_level === 'low').length}
+                            </div>
+                            <div className="stat-label">Rendah</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="card">
+                        <div className="card-title">Top 10 Anomali Tertinggi</div>
+                        <div className="point-list" style={{ maxHeight: 300 }}>
+                          {satelliteAnomalies
+                            .sort((a, b) => b.intensity - a.intensity)
+                            .slice(0, 10)
+                            .map((a, i) => (
+                              <div key={i} className="point-item">
+                                <div>
+                                  <div className="label" style={{ color: getAnomalyColor(a.intensity) }}>
+                                    #{i+1} Iron Oxide: {a.iron_oxide_raw.toFixed(3)}
+                                  </div>
+                                  <div className="coords">{a.lat.toFixed(6)}, {a.lng.toFixed(6)}</div>
+                                </div>
+                                <span className={`anomaly-badge ${a.anomaly_level === 'critical' ? 'critical' : a.anomaly_level === 'high' ? 'high' : 'moderate'}`}>
+                                  {(a.intensity * 100).toFixed(0)}%
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </>)}
 
                 {/* ===== RESULTS TAB ===== */}
@@ -721,6 +858,33 @@ export default function App() {
                   </div>
                 </Popup>
               </Marker>
+            ))}
+
+            {/* Satellite anomaly markers (from GEE) */}
+            {showSatelliteData && satelliteAnomalies.map((a, i) => (
+              <CircleMarker
+                key={`sat-${i}`}
+                center={[a.lat, a.lng]}
+                radius={a.anomaly_level === 'critical' ? 10 : a.anomaly_level === 'high' ? 8 : a.anomaly_level === 'moderate' ? 6 : 4}
+                pathOptions={{
+                  color: getAnomalyColor(a.intensity),
+                  fillColor: getAnomalyColor(a.intensity),
+                  fillOpacity: 0.7,
+                  weight: 2,
+                }}
+              >
+                <Popup>
+                  <div style={{ color: '#333', fontSize: 12, minWidth: 180 }}>
+                    <strong style={{ color: getAnomalyColor(a.intensity), fontSize: 14 }}>
+                      🛰️ Anomali Satelit
+                    </strong>
+                    <br />Iron Oxide: {a.iron_oxide_raw.toFixed(3)}
+                    <br />Intensitas: {(a.intensity * 100).toFixed(0)}%
+                    <br />Level: <span style={{ fontWeight: 700, color: getAnomalyColor(a.intensity) }}>{a.anomaly_level.toUpperCase()}</span>
+                    <br /><em style={{ fontSize: 10, color: '#666' }}>Sumber: Sentinel-2 (GEE)</em>
+                  </div>
+                </Popup>
+              </CircleMarker>
             ))}
 
             {/* Mineral markers */}
