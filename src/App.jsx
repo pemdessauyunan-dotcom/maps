@@ -93,13 +93,14 @@ function generateScanGrid(bounds, spacingMeters) {
 }
 
 // Analyze a single point for anomalies using surrounding terrain
-async function analyzePointForAnomaly(lat, lng, allPoints) {
-  // Find neighbors within ~200m
+async function analyzePointForAnomaly(lat, lng, allPoints, gridSpacing = 50) {
+  // Find neighbors within ~3x grid spacing
+  const searchRadius = Math.max(gridSpacing * 3, 100)
   const neighbors = allPoints.filter(p => {
     if (p.lat === lat && p.lng === lng) return false
     const dLat = (p.lat - lat) * 111000
     const dLng = (p.lng - lng) * 111000 * Math.cos(lat * Math.PI / 180)
-    return Math.sqrt(dLat*dLat + dLng*dLng) < 200
+    return Math.sqrt(dLat*dLat + dLng*dLng) < searchRadius
   })
 
   if (neighbors.length < 3) return { score: 0, type: 'normal' }
@@ -115,14 +116,14 @@ async function analyzePointForAnomaly(lat, lng, allPoints) {
   const diff = avgElev - pointElev
   const normalizedDiff = stdDev > 0 ? diff / stdDev : 0
 
-  // Depression = possible tunnel/cave/room
-  if (diff > 1.5 && normalizedDiff > 1.2) {
-    const score = Math.min(normalizedDiff / 3, 1)
+  // Depression = possible tunnel/cave/room (lowered threshold for better detection)
+  if (diff > 1.0 && normalizedDiff > 0.8) {
+    const score = Math.min(normalizedDiff / 2.5, 1)
     return { score, type: 'depression', elevation: pointElev, avgNeighborElev: avgElev, diff: diff.toFixed(1) }
   }
-  // Spike = possible buried structure
-  if (diff < -1.5 && normalizedDiff < -1.2) {
-    const score = Math.min(Math.abs(normalizedDiff) / 3, 1)
+  // Spike = possible buried structure (lowered threshold)
+  if (diff < -1.0 && normalizedDiff < -0.8) {
+    const score = Math.min(Math.abs(normalizedDiff) / 2.5, 1)
     return { score, type: 'elevation_spike', elevation: pointElev, avgNeighborElev: avgElev, diff: diff.toFixed(1) }
   }
 
@@ -250,7 +251,7 @@ export default function App() {
       const p = updatedPoints[i]
       if (p.elevation == null) continue
 
-      const result = await analyzePointForAnomaly(p.lat, p.lng, updatedPoints)
+      const result = await analyzePointForAnomaly(p.lat, p.lng, updatedPoints, gridSpacing)
       updatedPoints[i] = { ...p, anomalyScore: result.score, anomalyType: result.type }
 
       if (result.score > 0.3) {
@@ -266,14 +267,16 @@ export default function App() {
 
     setScanPoints(updatedPoints)
     setAnomalies(foundAnomalies.sort((a, b) => b.anomalyScore - a.anomalyScore))
+    
+    const validElevations = updatedPoints.filter(p => p.elevation != null && !isNaN(p.elevation)).map(p => p.elevation)
     setScanStats({
       totalPoints: updatedPoints.length,
       anomaliesFound: foundAnomalies.length,
       criticalCount: foundAnomalies.filter(a => a.anomalyScore > 0.7).length,
       highCount: foundAnomalies.filter(a => a.anomalyScore > 0.5 && a.anomalyScore <= 0.7).length,
       moderateCount: foundAnomalies.filter(a => a.anomalyScore > 0.3 && a.anomalyScore <= 0.5).length,
-      elevMin: Math.min(...updatedPoints.filter(p => p.elevation != null).map(p => p.elevation)).toFixed(0),
-      elevMax: Math.max(...updatedPoints.filter(p => p.elevation != null).map(p => p.elevation)).toFixed(0),
+      elevMin: validElevations.length > 0 ? Math.min(...validElevations).toFixed(0) : 'N/A',
+      elevMax: validElevations.length > 0 ? Math.max(...validElevations).toFixed(0) : 'N/A',
     })
     setScanning(false)
     setScanProgress(100)
