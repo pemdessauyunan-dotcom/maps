@@ -6,6 +6,7 @@ import './index.css'
 import { fetchElevationBatch, fetchSurroundingTerrain } from './services/elevationApi'
 import { fetchGeologicalInfo } from './services/geologicalApi'
 import { getAnomalyColor, getAnomalyLabel } from './services/anomalyEngine'
+import { generateContours, generateHeatmapData } from './utils/contour'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
@@ -199,6 +200,12 @@ export default function App() {
   const [gridSpacing, setGridSpacing] = useState(50)
   const [scanStats, setScanStats] = useState(null)
 
+  // Visualization options
+  const [showContours, setShowContours] = useState(true)
+  const [showHeatmap, setShowHeatmap] = useState(true)
+  const [contourLines, setContourLines] = useState([])
+  const [heatmapData, setHeatmapData] = useState([])
+
   // Selected anomaly detail
   const [selectedAnomaly, setSelectedAnomaly] = useState(null)
   const [geoInfo, setGeoInfo] = useState(null)
@@ -278,6 +285,22 @@ export default function App() {
       elevMin: validElevations.length > 0 ? Math.min(...validElevations).toFixed(0) : 'N/A',
       elevMax: validElevations.length > 0 ? Math.max(...validElevations).toFixed(0) : 'N/A',
     })
+
+    // Generate contour lines and heatmap data
+    const validPoints = updatedPoints.filter(p => p.elevation != null && !isNaN(p.elevation))
+    if (validPoints.length >= 3 && mapRef.current) {
+      const bounds = mapRef.current.getBounds()
+      const contours = generateContours(validPoints, { north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() }, 80)
+      setContourLines(contours)
+      
+      // Generate heatmap data from anomalies
+      const heatData = generateHeatmapData(
+        foundAnomalies.map(a => ({ lat: a.lat, lng: a.lng, value: a.anomalyScore })),
+        1
+      )
+      setHeatmapData(heatData)
+    }
+
     setScanning(false)
     setScanProgress(100)
   }
@@ -387,6 +410,30 @@ export default function App() {
                       {scanning ? `⏳ Scanning... ${scanProgress}%` : '📡 MULAI SCAN AREA'}
                     </button>
                   </div>
+
+                  {/* Visualization Options */}
+                  {scanStats && !scanning && (
+                    <div className="card">
+                      <div className="card-title">Visualisasi</div>
+                      <div className="toggle-row">
+                        <label>Garis Kontur (seperti Surfer)</label>
+                        <label className="toggle-switch">
+                          <input type="checkbox" checked={showContours} onChange={() => setShowContours(!showContours)} />
+                          <span className="toggle-slider"></span>
+                        </label>
+                      </div>
+                      <div className="toggle-row">
+                        <label>Heatmap Anomali</label>
+                        <label className="toggle-switch">
+                          <input type="checkbox" checked={showHeatmap} onChange={() => setShowHeatmap(!showHeatmap)} />
+                          <span className="toggle-slider"></span>
+                        </label>
+                      </div>
+                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
+                        💡 Garis kontur menampilkan elevasi terrain seperti peta topografi. Heatmap menunjukkan area dengan anomali tinggi.
+                      </p>
+                    </div>
+                  )}
 
                   {scanning && (
                     <div className="card">
@@ -620,6 +667,36 @@ export default function App() {
             {showMineralWMS && <WMSTileLayer url="https://mrdata.usgs.gov/services/mrds" layers="mrds" format="image/png" transparent opacity={0.7} attribution="USGS MRDS" />}
 
             <MapClickHandler onMapClick={handleMapClick} onMapMove={c => setMapCenter({ lat: c.lat, lng: c.lng })} />
+
+            {/* Contour Lines (like Surfer) */}
+            {showContours && contourLines.map((contour, ci) => (
+              contour.paths.map((path, pi) => (
+                <Polyline
+                  key={`contour-${ci}-${pi}`}
+                  positions={path.map(p => [p.lat, p.lng])}
+                  pathOptions={{
+                    color: contour.level > 500 ? '#8B4513' : contour.level > 200 ? '#228B22' : '#4169E1',
+                    weight: 1.5,
+                    opacity: 0.6,
+                  }}
+                />
+              ))
+            ))}
+
+            {/* Heatmap overlay for anomalies */}
+            {showHeatmap && heatmapData.length > 0 && heatmapData.map((point, i) => (
+              <CircleMarker
+                key={`heat-${i}`}
+                center={[point[0], point[1]]}
+                radius={30}
+                pathOptions={{
+                  color: 'transparent',
+                  fillColor: point[2] > 0.7 ? '#FF0000' : point[2] > 0.5 ? '#FF8C00' : point[2] > 0.3 ? '#FFFF00' : '#00FF00',
+                  fillOpacity: 0.3,
+                  weight: 0,
+                }}
+              />
+            ))}
 
             {/* Scan grid points (subtle) */}
             {scanPoints.filter(p => p.anomalyScore <= 0.3 && p.elevation != null).map((p, i) => (
