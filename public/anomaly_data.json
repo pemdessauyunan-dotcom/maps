@@ -1,123 +1,2122 @@
 {
   "metadata": {
     "area": "Kasomalang Kulon",
-    "bbox": [107.7150, -6.6850, 107.7450, -6.6600],
-    "date_processed": "2024-12-19T10:30:00.000Z",
-    "satellite": "Sentinel-2",
-    "index": "Iron Oxide (B4/B2)",
-    "total_points": 200,
+    "bbox": [
+      107.715,
+      -6.685,
+      107.745,
+      -6.66
+    ],
+    "date_processed": "2026-07-01T21:14:42.105870",
+    "satellite": "Sentinel-2 L2A",
+    "source": "Google Earth Engine (Real Data)",
+    "index": "Iron Oxide (B4/B2 ratio)",
+    "total_points": 300,
     "value_range": {
-      "min": 0.85,
-      "max": 2.15
+      "min": 0.7726,
+      "max": 2.2803
     }
   },
   "anomalies": [
-    {"lat": -6.6715, "lng": 107.7285, "iron_oxide_raw": 2.15, "intensity": 1.0, "anomaly_level": "critical"},
-    {"lat": -6.6720, "lng": 107.7290, "iron_oxide_raw": 2.12, "intensity": 0.98, "anomaly_level": "critical"},
-    {"lat": -6.6710, "lng": 107.7280, "iron_oxide_raw": 2.08, "intensity": 0.95, "anomaly_level": "critical"},
-    {"lat": -6.6725, "lng": 107.7295, "iron_oxide_raw": 2.05, "intensity": 0.93, "anomaly_level": "critical"},
-    {"lat": -6.6705, "lng": 107.7275, "iron_oxide_raw": 2.02, "intensity": 0.90, "anomaly_level": "critical"},
-    {"lat": -6.6730, "lng": 107.7300, "iron_oxide_raw": 1.98, "intensity": 0.88, "anomaly_level": "critical"},
-    {"lat": -6.6700, "lng": 107.7270, "iron_oxide_raw": 1.95, "intensity": 0.85, "anomaly_level": "critical"},
-    {"lat": -6.6735, "lng": 107.7305, "iron_oxide_raw": 1.92, "intensity": 0.83, "anomaly_level": "critical"},
-    {"lat": -6.6695, "lng": 107.7265, "iron_oxide_raw": 1.88, "intensity": 0.80, "anomaly_level": "high"},
-    {"lat": -6.6740, "lng": 107.7310, "iron_oxide_raw": 1.85, "intensity": 0.78, "anomaly_level": "high"},
-    {"lat": -6.6690, "lng": 107.7260, "iron_oxide_raw": 1.82, "intensity": 0.75, "anomaly_level": "high"},
-    {"lat": -6.6745, "lng": 107.7315, "iron_oxide_raw": 1.78, "intensity": 0.73, "anomaly_level": "high"},
-    {"lat": -6.6685, "lng": 107.7255, "iron_oxide_raw": 1.75, "intensity": 0.70, "anomaly_level": "high"},
-    {"lat": -6.6750, "lng": 107.7320, "iron_oxide_raw": 1.72, "intensity": 0.68, "anomaly_level": "high"},
-    {"lat": -6.6680, "lng": 107.7250, "iron_oxide_raw": 1.68, "intensity": 0.65, "anomaly_level": "high"},
-    {"lat": -6.6755, "lng": 107.7325, "iron_oxide_raw": 1.65, "intensity": 0.63, "anomaly_level": "high"},
-    {"lat": -6.6675, "lng": 107.7245, "iron_oxide_raw": 1.62, "intensity": 0.60, "anomaly_level": "high"},
-    {"lat": -6.6760, "lng": 107.7330, "iron_oxide_raw": 1.58, "intensity": 0.58, "anomaly_level": "high"},
-    {"lat": -6.6670, "lng": 107.7240, "iron_oxide_raw": 1.55, "intensity": 0.55, "anomaly_level": "moderate"},
-    {"lat": -6.6765, "lng": 107.7335, "iron_oxide_raw": 1.52, "intensity": 0.53, "anomaly_level": "moderate"},
-    {"lat": -6.6712, "lng": 107.7288, "iron_oxide_raw": 1.48, "intensity": 0.50, "anomaly_level": "moderate"},
-    {"lat": -6.6718, "lng": 107.7292, "iron_oxide_raw": 1.45, "intensity": 0.48, "anomaly_level": "moderate"},
-    {"lat": -6.6708, "lng": 107.7282, "iron_oxide_raw": 1.42, "intensity": 0.45, "anomaly_level": "moderate"},
-    {"lat": -6.6722, "lng": 107.7298, "iron_oxide_raw": 1.38, "intensity": 0.43, "anomaly_level": "moderate"},
-    {"lat": -6.6702, "lng": 107.7278, "iron_oxide_raw": 1.35, "intensity": 0.40, "anomaly_level": "moderate"},
-    {"lat": -6.6728, "lng": 107.7302, "iron_oxide_raw": 1.32, "intensity": 0.38, "anomaly_level": "moderate"},
-    {"lat": -6.6698, "lng": 107.7272, "iron_oxide_raw": 1.28, "intensity": 0.35, "anomaly_level": "moderate"},
-    {"lat": -6.6732, "lng": 107.7308, "iron_oxide_raw": 1.25, "intensity": 0.33, "anomaly_level": "moderate"},
-    {"lat": -6.6692, "lng": 107.7268, "iron_oxide_raw": 1.22, "intensity": 0.30, "anomaly_level": "moderate"},
-    {"lat": -6.6738, "lng": 107.7312, "iron_oxide_raw": 1.18, "intensity": 0.28, "anomaly_level": "low"},
-    {"lat": -6.6688, "lng": 107.7262, "iron_oxide_raw": 1.15, "intensity": 0.25, "anomaly_level": "low"},
-    {"lat": -6.6742, "lng": 107.7318, "iron_oxide_raw": 1.12, "intensity": 0.23, "anomaly_level": "low"},
-    {"lat": -6.6682, "lng": 107.7258, "iron_oxide_raw": 1.08, "intensity": 0.20, "anomaly_level": "low"},
-    {"lat": -6.6748, "lng": 107.7322, "iron_oxide_raw": 1.05, "intensity": 0.18, "anomaly_level": "low"},
-    {"lat": -6.6678, "lng": 107.7252, "iron_oxide_raw": 1.02, "intensity": 0.15, "anomaly_level": "low"},
-    {"lat": -6.6752, "lng": 107.7328, "iron_oxide_raw": 0.98, "intensity": 0.13, "anomaly_level": "low"},
-    {"lat": -6.6672, "lng": 107.7248, "iron_oxide_raw": 0.95, "intensity": 0.10, "anomaly_level": "low"},
-    {"lat": -6.6758, "lng": 107.7332, "iron_oxide_raw": 0.92, "intensity": 0.08, "anomaly_level": "low"},
-    {"lat": -6.6668, "lng": 107.7242, "iron_oxide_raw": 0.88, "intensity": 0.05, "anomaly_level": "low"},
-    {"lat": -6.6762, "lng": 107.7338, "iron_oxide_raw": 0.85, "intensity": 0.03, "anomaly_level": "low"},
-    {"lat": -6.6714, "lng": 107.7286, "iron_oxide_raw": 1.90, "intensity": 0.82, "anomaly_level": "high"},
-    {"lat": -6.6716, "lng": 107.7284, "iron_oxide_raw": 1.87, "intensity": 0.80, "anomaly_level": "high"},
-    {"lat": -6.6724, "lng": 107.7296, "iron_oxide_raw": 1.83, "intensity": 0.77, "anomaly_level": "high"},
-    {"lat": -6.6706, "lng": 107.7276, "iron_oxide_raw": 1.80, "intensity": 0.75, "anomaly_level": "high"},
-    {"lat": -6.6726, "lng": 107.7304, "iron_oxide_raw": 1.77, "intensity": 0.72, "anomaly_level": "high"},
-    {"lat": -6.6704, "lng": 107.7274, "iron_oxide_raw": 1.73, "intensity": 0.70, "anomaly_level": "high"},
-    {"lat": -6.6734, "lng": 107.7306, "iron_oxide_raw": 1.70, "intensity": 0.67, "anomaly_level": "high"},
-    {"lat": -6.6694, "lng": 107.7266, "iron_oxide_raw": 1.67, "intensity": 0.65, "anomaly_level": "high"},
-    {"lat": -6.6736, "lng": 107.7314, "iron_oxide_raw": 1.63, "intensity": 0.62, "anomaly_level": "high"},
-    {"lat": -6.6696, "lng": 107.7264, "iron_oxide_raw": 1.60, "intensity": 0.60, "anomaly_level": "high"},
-    {"lat": -6.6744, "lng": 107.7316, "iron_oxide_raw": 1.57, "intensity": 0.57, "anomaly_level": "moderate"},
-    {"lat": -6.6684, "lng": 107.7256, "iron_oxide_raw": 1.53, "intensity": 0.55, "anomaly_level": "moderate"},
-    {"lat": -6.6746, "lng": 107.7324, "iron_oxide_raw": 1.50, "intensity": 0.52, "anomaly_level": "moderate"},
-    {"lat": -6.6686, "lng": 107.7254, "iron_oxide_raw": 1.47, "intensity": 0.50, "anomaly_level": "moderate"},
-    {"lat": -6.6754, "lng": 107.7326, "iron_oxide_raw": 1.43, "intensity": 0.47, "anomaly_level": "moderate"},
-    {"lat": -6.6676, "lng": 107.7246, "iron_oxide_raw": 1.40, "intensity": 0.45, "anomaly_level": "moderate"},
-    {"lat": -6.6756, "lng": 107.7334, "iron_oxide_raw": 1.37, "intensity": 0.42, "anomaly_level": "moderate"},
-    {"lat": -6.6674, "lng": 107.7244, "iron_oxide_raw": 1.33, "intensity": 0.40, "anomaly_level": "moderate"},
-    {"lat": -6.6764, "lng": 107.7336, "iron_oxide_raw": 1.30, "intensity": 0.37, "anomaly_level": "moderate"},
-    {"lat": -6.6666, "lng": 107.7236, "iron_oxide_raw": 1.27, "intensity": 0.35, "anomaly_level": "moderate"},
-    {"lat": -6.6713, "lng": 107.7287, "iron_oxide_raw": 1.23, "intensity": 0.32, "anomaly_level": "moderate"},
-    {"lat": -6.6717, "lng": 107.7293, "iron_oxide_raw": 1.20, "intensity": 0.30, "anomaly_level": "moderate"},
-    {"lat": -6.6707, "lng": 107.7283, "iron_oxide_raw": 1.17, "intensity": 0.27, "anomaly_level": "low"},
-    {"lat": -6.6723, "lng": 107.7297, "iron_oxide_raw": 1.13, "intensity": 0.25, "anomaly_level": "low"},
-    {"lat": -6.6703, "lng": 107.7277, "iron_oxide_raw": 1.10, "intensity": 0.22, "anomaly_level": "low"},
-    {"lat": -6.6727, "lng": 107.7303, "iron_oxide_raw": 1.07, "intensity": 0.20, "anomaly_level": "low"},
-    {"lat": -6.6697, "lng": 107.7273, "iron_oxide_raw": 1.03, "intensity": 0.17, "anomaly_level": "low"},
-    {"lat": -6.6733, "lng": 107.7307, "iron_oxide_raw": 1.00, "intensity": 0.15, "anomaly_level": "low"},
-    {"lat": -6.6693, "lng": 107.7267, "iron_oxide_raw": 0.97, "intensity": 0.12, "anomaly_level": "low"},
-    {"lat": -6.6737, "lng": 107.7313, "iron_oxide_raw": 0.93, "intensity": 0.10, "anomaly_level": "low"},
-    {"lat": -6.6687, "lng": 107.7263, "iron_oxide_raw": 0.90, "intensity": 0.07, "anomaly_level": "low"},
-    {"lat": -6.6743, "lng": 107.7317, "iron_oxide_raw": 0.87, "intensity": 0.05, "anomaly_level": "low"},
-    {"lat": -6.6683, "lng": 107.7257, "iron_oxide_raw": 0.85, "intensity": 0.03, "anomaly_level": "low"},
-    {"lat": -6.6711, "lng": 107.7281, "iron_oxide_raw": 1.95, "intensity": 0.86, "anomaly_level": "critical"},
-    {"lat": -6.6719, "lng": 107.7291, "iron_oxide_raw": 1.91, "intensity": 0.84, "anomaly_level": "high"},
-    {"lat": -6.6709, "lng": 107.7281, "iron_oxide_raw": 1.87, "intensity": 0.81, "anomaly_level": "high"},
-    {"lat": -6.6721, "lng": 107.7299, "iron_oxide_raw": 1.84, "intensity": 0.79, "anomaly_level": "high"},
-    {"lat": -6.6701, "lng": 107.7279, "iron_oxide_raw": 1.80, "intensity": 0.76, "anomaly_level": "high"},
-    {"lat": -6.6729, "lng": 107.7301, "iron_oxide_raw": 1.77, "intensity": 0.74, "anomaly_level": "high"},
-    {"lat": -6.6699, "lng": 107.7271, "iron_oxide_raw": 1.73, "intensity": 0.71, "anomaly_level": "high"},
-    {"lat": -6.6731, "lng": 107.7309, "iron_oxide_raw": 1.70, "intensity": 0.68, "anomaly_level": "high"},
-    {"lat": -6.6691, "lng": 107.7269, "iron_oxide_raw": 1.67, "intensity": 0.66, "anomaly_level": "high"},
-    {"lat": -6.6739, "lng": 107.7311, "iron_oxide_raw": 1.63, "intensity": 0.63, "anomaly_level": "high"},
-    {"lat": -6.6689, "lng": 107.7261, "iron_oxide_raw": 1.60, "intensity": 0.60, "anomaly_level": "high"},
-    {"lat": -6.6741, "lng": 107.7319, "iron_oxide_raw": 1.57, "intensity": 0.58, "anomaly_level": "moderate"},
-    {"lat": -6.6681, "lng": 107.7259, "iron_oxide_raw": 1.53, "intensity": 0.55, "anomaly_level": "moderate"},
-    {"lat": -6.6749, "lng": 107.7321, "iron_oxide_raw": 1.50, "intensity": 0.53, "anomaly_level": "moderate"},
-    {"lat": -6.6679, "lng": 107.7251, "iron_oxide_raw": 1.47, "intensity": 0.50, "anomaly_level": "moderate"},
-    {"lat": -6.6751, "lng": 107.7329, "iron_oxide_raw": 1.43, "intensity": 0.48, "anomaly_level": "moderate"},
-    {"lat": -6.6677, "lng": 107.7249, "iron_oxide_raw": 1.40, "intensity": 0.45, "anomaly_level": "moderate"},
-    {"lat": -6.6753, "lng": 107.7331, "iron_oxide_raw": 1.37, "intensity": 0.43, "anomaly_level": "moderate"},
-    {"lat": -6.6673, "lng": 107.7247, "iron_oxide_raw": 1.33, "intensity": 0.40, "anomaly_level": "moderate"},
-    {"lat": -6.6757, "lng": 107.7333, "iron_oxide_raw": 1.30, "intensity": 0.38, "anomaly_level": "moderate"},
-    {"lat": -6.6671, "lng": 107.7243, "iron_oxide_raw": 1.27, "intensity": 0.35, "anomaly_level": "moderate"},
-    {"lat": -6.6759, "lng": 107.7337, "iron_oxide_raw": 1.23, "intensity": 0.33, "anomaly_level": "moderate"},
-    {"lat": -6.6669, "lng": 107.7241, "iron_oxide_raw": 1.20, "intensity": 0.30, "anomaly_level": "moderate"},
-    {"lat": -6.6761, "lng": 107.7339, "iron_oxide_raw": 1.17, "intensity": 0.28, "anomaly_level": "low"},
-    {"lat": -6.6667, "lng": 107.7239, "iron_oxide_raw": 1.13, "intensity": 0.25, "anomaly_level": "low"},
-    {"lat": -6.6763, "lng": 107.7341, "iron_oxide_raw": 1.10, "intensity": 0.23, "anomaly_level": "low"},
-    {"lat": -6.6665, "lng": 107.7237, "iron_oxide_raw": 1.07, "intensity": 0.20, "anomaly_level": "low"},
-    {"lat": -6.6766, "lng": 107.7342, "iron_oxide_raw": 1.03, "intensity": 0.18, "anomaly_level": "low"},
-    {"lat": -6.6664, "lng": 107.7238, "iron_oxide_raw": 1.00, "intensity": 0.15, "anomaly_level": "low"},
-    {"lat": -6.6767, "lng": 107.7343, "iron_oxide_raw": 0.97, "intensity": 0.13, "anomaly_level": "low"},
-    {"lat": -6.6663, "lng": 107.7235, "iron_oxide_raw": 0.93, "intensity": 0.10, "anomaly_level": "low"},
-    {"lat": -6.6768, "lng": 107.7344, "iron_oxide_raw": 0.90, "intensity": 0.08, "anomaly_level": "low"},
-    {"lat": -6.6662, "lng": 107.7234, "iron_oxide_raw": 0.87, "intensity": 0.05, "anomaly_level": "low"},
-    {"lat": -6.6769, "lng": 107.7345, "iron_oxide_raw": 0.85, "intensity": 0.03, "anomaly_level": "low"}
+    {
+      "lat": -6.660635,
+      "lng": 107.723528,
+      "iron_oxide_raw": 1.0746,
+      "intensity": 0.2,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.675189,
+      "lng": 107.733396,
+      "iron_oxide_raw": 1.1256,
+      "intensity": 0.234,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668094,
+      "lng": 107.723818,
+      "iron_oxide_raw": 0.9221,
+      "intensity": 0.099,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.662261,
+      "lng": 107.727798,
+      "iron_oxide_raw": 1.0766,
+      "intensity": 0.202,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668039,
+      "lng": 107.731973,
+      "iron_oxide_raw": 1.0456,
+      "intensity": 0.181,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.674415,
+      "lng": 107.717489,
+      "iron_oxide_raw": 0.7937,
+      "intensity": 0.014,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.676221,
+      "lng": 107.735529,
+      "iron_oxide_raw": 1.2202,
+      "intensity": 0.297,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.674039,
+      "lng": 107.73321,
+      "iron_oxide_raw": 1.6568,
+      "intensity": 0.586,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.683343,
+      "lng": 107.734607,
+      "iron_oxide_raw": 0.9575,
+      "intensity": 0.123,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.675296,
+      "lng": 107.733689,
+      "iron_oxide_raw": 1.087,
+      "intensity": 0.209,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.671072,
+      "lng": 107.732928,
+      "iron_oxide_raw": 1.439,
+      "intensity": 0.442,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.677019,
+      "lng": 107.732177,
+      "iron_oxide_raw": 1.0371,
+      "intensity": 0.175,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.665077,
+      "lng": 107.727908,
+      "iron_oxide_raw": 1.1797,
+      "intensity": 0.27,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.680868,
+      "lng": 107.717466,
+      "iron_oxide_raw": 0.959,
+      "intensity": 0.124,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664766,
+      "lng": 107.726748,
+      "iron_oxide_raw": 1.0327,
+      "intensity": 0.173,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.669496,
+      "lng": 107.732492,
+      "iron_oxide_raw": 1.0854,
+      "intensity": 0.207,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.683639,
+      "lng": 107.723145,
+      "iron_oxide_raw": 1.0231,
+      "intensity": 0.166,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.666941,
+      "lng": 107.736871,
+      "iron_oxide_raw": 1.4033,
+      "intensity": 0.418,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.683707,
+      "lng": 107.737068,
+      "iron_oxide_raw": 1.0677,
+      "intensity": 0.196,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670588,
+      "lng": 107.722459,
+      "iron_oxide_raw": 0.9333,
+      "intensity": 0.107,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677236,
+      "lng": 107.719125,
+      "iron_oxide_raw": 0.9455,
+      "intensity": 0.115,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682436,
+      "lng": 107.7404,
+      "iron_oxide_raw": 1.0082,
+      "intensity": 0.156,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.68089,
+      "lng": 107.715458,
+      "iron_oxide_raw": 1.0132,
+      "intensity": 0.16,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.684591,
+      "lng": 107.736673,
+      "iron_oxide_raw": 0.8452,
+      "intensity": 0.048,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.662964,
+      "lng": 107.743777,
+      "iron_oxide_raw": 1.3222,
+      "intensity": 0.365,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682847,
+      "lng": 107.730703,
+      "iron_oxide_raw": 0.8434,
+      "intensity": 0.047,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678648,
+      "lng": 107.729599,
+      "iron_oxide_raw": 0.8103,
+      "intensity": 0.025,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661347,
+      "lng": 107.731704,
+      "iron_oxide_raw": 0.8437,
+      "intensity": 0.047,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.683765,
+      "lng": 107.73409,
+      "iron_oxide_raw": 0.9373,
+      "intensity": 0.109,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.684524,
+      "lng": 107.737343,
+      "iron_oxide_raw": 0.8785,
+      "intensity": 0.07,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.672298,
+      "lng": 107.723743,
+      "iron_oxide_raw": 0.9025,
+      "intensity": 0.086,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679591,
+      "lng": 107.729503,
+      "iron_oxide_raw": 0.8351,
+      "intensity": 0.041,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663524,
+      "lng": 107.724316,
+      "iron_oxide_raw": 0.9943,
+      "intensity": 0.147,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.681766,
+      "lng": 107.736126,
+      "iron_oxide_raw": 0.8984,
+      "intensity": 0.083,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682015,
+      "lng": 107.731565,
+      "iron_oxide_raw": 0.8966,
+      "intensity": 0.082,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664127,
+      "lng": 107.736612,
+      "iron_oxide_raw": 1.4146,
+      "intensity": 0.426,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.663707,
+      "lng": 107.735443,
+      "iron_oxide_raw": 1.4486,
+      "intensity": 0.448,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.683053,
+      "lng": 107.722227,
+      "iron_oxide_raw": 1.0234,
+      "intensity": 0.166,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679591,
+      "lng": 107.741964,
+      "iron_oxide_raw": 0.99,
+      "intensity": 0.144,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678279,
+      "lng": 107.74165,
+      "iron_oxide_raw": 0.8495,
+      "intensity": 0.051,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.681215,
+      "lng": 107.736636,
+      "iron_oxide_raw": 0.976,
+      "intensity": 0.135,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.676981,
+      "lng": 107.715147,
+      "iron_oxide_raw": 0.8309,
+      "intensity": 0.039,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661314,
+      "lng": 107.719924,
+      "iron_oxide_raw": 1.0314,
+      "intensity": 0.172,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670498,
+      "lng": 107.729749,
+      "iron_oxide_raw": 1.5833,
+      "intensity": 0.538,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.665588,
+      "lng": 107.716221,
+      "iron_oxide_raw": 1.3085,
+      "intensity": 0.355,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.66608,
+      "lng": 107.725949,
+      "iron_oxide_raw": 1.9114,
+      "intensity": 0.755,
+      "anomaly_level": "high"
+    },
+    {
+      "lat": -6.680561,
+      "lng": 107.727454,
+      "iron_oxide_raw": 0.8162,
+      "intensity": 0.029,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.673461,
+      "lng": 107.732331,
+      "iron_oxide_raw": 1.4532,
+      "intensity": 0.451,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.671667,
+      "lng": 107.723085,
+      "iron_oxide_raw": 0.8916,
+      "intensity": 0.079,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668751,
+      "lng": 107.738994,
+      "iron_oxide_raw": 1.1011,
+      "intensity": 0.218,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.666014,
+      "lng": 107.727512,
+      "iron_oxide_raw": 1.3433,
+      "intensity": 0.379,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682612,
+      "lng": 107.728827,
+      "iron_oxide_raw": 0.8351,
+      "intensity": 0.041,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.680099,
+      "lng": 107.736008,
+      "iron_oxide_raw": 0.8734,
+      "intensity": 0.067,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.683892,
+      "lng": 107.742223,
+      "iron_oxide_raw": 0.7964,
+      "intensity": 0.016,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670033,
+      "lng": 107.737941,
+      "iron_oxide_raw": 1.3592,
+      "intensity": 0.389,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682068,
+      "lng": 107.72939,
+      "iron_oxide_raw": 0.8716,
+      "intensity": 0.066,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677603,
+      "lng": 107.743422,
+      "iron_oxide_raw": 0.9443,
+      "intensity": 0.114,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664248,
+      "lng": 107.727385,
+      "iron_oxide_raw": 1.063,
+      "intensity": 0.193,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678555,
+      "lng": 107.73701,
+      "iron_oxide_raw": 0.8581,
+      "intensity": 0.057,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670518,
+      "lng": 107.738364,
+      "iron_oxide_raw": 1.4071,
+      "intensity": 0.421,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.676965,
+      "lng": 107.73386,
+      "iron_oxide_raw": 0.9598,
+      "intensity": 0.124,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.662673,
+      "lng": 107.716098,
+      "iron_oxide_raw": 1.3621,
+      "intensity": 0.391,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679992,
+      "lng": 107.737715,
+      "iron_oxide_raw": 0.8062,
+      "intensity": 0.022,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678291,
+      "lng": 107.733661,
+      "iron_oxide_raw": 0.8344,
+      "intensity": 0.041,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664096,
+      "lng": 107.71898,
+      "iron_oxide_raw": 0.8704,
+      "intensity": 0.065,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.672058,
+      "lng": 107.722061,
+      "iron_oxide_raw": 1.0512,
+      "intensity": 0.185,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.665818,
+      "lng": 107.724539,
+      "iron_oxide_raw": 1.0866,
+      "intensity": 0.208,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.667123,
+      "lng": 107.720592,
+      "iron_oxide_raw": 1.201,
+      "intensity": 0.284,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670428,
+      "lng": 107.726059,
+      "iron_oxide_raw": 0.8438,
+      "intensity": 0.047,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.684818,
+      "lng": 107.720773,
+      "iron_oxide_raw": 1.1172,
+      "intensity": 0.229,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.672919,
+      "lng": 107.730292,
+      "iron_oxide_raw": 1.0194,
+      "intensity": 0.164,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679201,
+      "lng": 107.723233,
+      "iron_oxide_raw": 0.9437,
+      "intensity": 0.113,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.680837,
+      "lng": 107.741699,
+      "iron_oxide_raw": 1.034,
+      "intensity": 0.173,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.67856,
+      "lng": 107.719153,
+      "iron_oxide_raw": 1.0427,
+      "intensity": 0.179,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682911,
+      "lng": 107.726428,
+      "iron_oxide_raw": 0.8278,
+      "intensity": 0.037,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.662523,
+      "lng": 107.724008,
+      "iron_oxide_raw": 0.8191,
+      "intensity": 0.031,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678153,
+      "lng": 107.738677,
+      "iron_oxide_raw": 1.213,
+      "intensity": 0.292,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.660707,
+      "lng": 107.743083,
+      "iron_oxide_raw": 1.4421,
+      "intensity": 0.444,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.683392,
+      "lng": 107.721958,
+      "iron_oxide_raw": 1.1029,
+      "intensity": 0.219,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668786,
+      "lng": 107.731767,
+      "iron_oxide_raw": 1.1938,
+      "intensity": 0.279,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.684575,
+      "lng": 107.71749,
+      "iron_oxide_raw": 1.4883,
+      "intensity": 0.475,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.676392,
+      "lng": 107.741603,
+      "iron_oxide_raw": 0.9161,
+      "intensity": 0.095,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678386,
+      "lng": 107.718118,
+      "iron_oxide_raw": 0.8387,
+      "intensity": 0.044,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.673759,
+      "lng": 107.727361,
+      "iron_oxide_raw": 1.1747,
+      "intensity": 0.267,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.667084,
+      "lng": 107.740226,
+      "iron_oxide_raw": 0.8387,
+      "intensity": 0.044,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677084,
+      "lng": 107.720321,
+      "iron_oxide_raw": 1.0281,
+      "intensity": 0.169,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.66459,
+      "lng": 107.739931,
+      "iron_oxide_raw": 0.9072,
+      "intensity": 0.089,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663472,
+      "lng": 107.740768,
+      "iron_oxide_raw": 0.827,
+      "intensity": 0.036,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.665126,
+      "lng": 107.722605,
+      "iron_oxide_raw": 1.3612,
+      "intensity": 0.39,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682536,
+      "lng": 107.744223,
+      "iron_oxide_raw": 0.922,
+      "intensity": 0.099,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.667122,
+      "lng": 107.733212,
+      "iron_oxide_raw": 0.8776,
+      "intensity": 0.07,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678539,
+      "lng": 107.723008,
+      "iron_oxide_raw": 0.8705,
+      "intensity": 0.065,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.675805,
+      "lng": 107.71671,
+      "iron_oxide_raw": 0.8082,
+      "intensity": 0.024,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.683981,
+      "lng": 107.725154,
+      "iron_oxide_raw": 0.8431,
+      "intensity": 0.047,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.660853,
+      "lng": 107.740591,
+      "iron_oxide_raw": 1.2074,
+      "intensity": 0.288,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.675386,
+      "lng": 107.720231,
+      "iron_oxide_raw": 1.0584,
+      "intensity": 0.19,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664645,
+      "lng": 107.743503,
+      "iron_oxide_raw": 1.9918,
+      "intensity": 0.809,
+      "anomaly_level": "critical"
+    },
+    {
+      "lat": -6.68363,
+      "lng": 107.729929,
+      "iron_oxide_raw": 0.8556,
+      "intensity": 0.055,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.671094,
+      "lng": 107.722628,
+      "iron_oxide_raw": 0.9533,
+      "intensity": 0.12,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668014,
+      "lng": 107.727783,
+      "iron_oxide_raw": 1.3593,
+      "intensity": 0.389,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679609,
+      "lng": 107.731528,
+      "iron_oxide_raw": 0.8947,
+      "intensity": 0.081,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678015,
+      "lng": 107.72975,
+      "iron_oxide_raw": 0.8819,
+      "intensity": 0.073,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.67123,
+      "lng": 107.741652,
+      "iron_oxide_raw": 1.6914,
+      "intensity": 0.609,
+      "anomaly_level": "high"
+    },
+    {
+      "lat": -6.683436,
+      "lng": 107.727492,
+      "iron_oxide_raw": 0.8357,
+      "intensity": 0.042,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.669314,
+      "lng": 107.734082,
+      "iron_oxide_raw": 0.8248,
+      "intensity": 0.035,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.66462,
+      "lng": 107.735695,
+      "iron_oxide_raw": 1.3569,
+      "intensity": 0.388,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.662716,
+      "lng": 107.721225,
+      "iron_oxide_raw": 1.0143,
+      "intensity": 0.16,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670379,
+      "lng": 107.741024,
+      "iron_oxide_raw": 1.0143,
+      "intensity": 0.16,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664499,
+      "lng": 107.730992,
+      "iron_oxide_raw": 0.9923,
+      "intensity": 0.146,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.681622,
+      "lng": 107.739369,
+      "iron_oxide_raw": 1.6443,
+      "intensity": 0.578,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.661984,
+      "lng": 107.744531,
+      "iron_oxide_raw": 0.9534,
+      "intensity": 0.12,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.673613,
+      "lng": 107.721052,
+      "iron_oxide_raw": 1.0568,
+      "intensity": 0.189,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.669861,
+      "lng": 107.743289,
+      "iron_oxide_raw": 1.9882,
+      "intensity": 0.806,
+      "anomaly_level": "critical"
+    },
+    {
+      "lat": -6.678789,
+      "lng": 107.735313,
+      "iron_oxide_raw": 0.8617,
+      "intensity": 0.059,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678765,
+      "lng": 107.721698,
+      "iron_oxide_raw": 1.0057,
+      "intensity": 0.155,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661394,
+      "lng": 107.728517,
+      "iron_oxide_raw": 0.9985,
+      "intensity": 0.15,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668995,
+      "lng": 107.721398,
+      "iron_oxide_raw": 0.9758,
+      "intensity": 0.135,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.660588,
+      "lng": 107.716307,
+      "iron_oxide_raw": 0.9976,
+      "intensity": 0.149,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679936,
+      "lng": 107.715885,
+      "iron_oxide_raw": 0.8,
+      "intensity": 0.018,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.671779,
+      "lng": 107.741098,
+      "iron_oxide_raw": 1.0572,
+      "intensity": 0.189,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.666052,
+      "lng": 107.741296,
+      "iron_oxide_raw": 0.8375,
+      "intensity": 0.043,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.684782,
+      "lng": 107.7299,
+      "iron_oxide_raw": 0.8715,
+      "intensity": 0.066,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679181,
+      "lng": 107.742362,
+      "iron_oxide_raw": 0.854,
+      "intensity": 0.054,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677997,
+      "lng": 107.732735,
+      "iron_oxide_raw": 0.8426,
+      "intensity": 0.046,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664484,
+      "lng": 107.733813,
+      "iron_oxide_raw": 1.3156,
+      "intensity": 0.36,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661714,
+      "lng": 107.732363,
+      "iron_oxide_raw": 1.4424,
+      "intensity": 0.444,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.67289,
+      "lng": 107.732048,
+      "iron_oxide_raw": 1.7264,
+      "intensity": 0.633,
+      "anomaly_level": "high"
+    },
+    {
+      "lat": -6.662247,
+      "lng": 107.742424,
+      "iron_oxide_raw": 1.0207,
+      "intensity": 0.165,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.683891,
+      "lng": 107.721411,
+      "iron_oxide_raw": 1.0321,
+      "intensity": 0.172,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.680968,
+      "lng": 107.74286,
+      "iron_oxide_raw": 0.8718,
+      "intensity": 0.066,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661747,
+      "lng": 107.733554,
+      "iron_oxide_raw": 1.4352,
+      "intensity": 0.439,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.683138,
+      "lng": 107.730343,
+      "iron_oxide_raw": 0.8592,
+      "intensity": 0.057,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.660516,
+      "lng": 107.715162,
+      "iron_oxide_raw": 1.1578,
+      "intensity": 0.256,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670871,
+      "lng": 107.724723,
+      "iron_oxide_raw": 0.9853,
+      "intensity": 0.141,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677582,
+      "lng": 107.727923,
+      "iron_oxide_raw": 0.8454,
+      "intensity": 0.048,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677597,
+      "lng": 107.728165,
+      "iron_oxide_raw": 0.8355,
+      "intensity": 0.042,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.674253,
+      "lng": 107.724147,
+      "iron_oxide_raw": 1.033,
+      "intensity": 0.173,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.676171,
+      "lng": 107.718605,
+      "iron_oxide_raw": 0.7726,
+      "intensity": 0.0,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.673236,
+      "lng": 107.73716,
+      "iron_oxide_raw": 1.1934,
+      "intensity": 0.279,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.681223,
+      "lng": 107.735343,
+      "iron_oxide_raw": 0.8885,
+      "intensity": 0.077,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663684,
+      "lng": 107.739848,
+      "iron_oxide_raw": 0.8741,
+      "intensity": 0.067,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663763,
+      "lng": 107.726678,
+      "iron_oxide_raw": 1.3392,
+      "intensity": 0.376,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.674072,
+      "lng": 107.719983,
+      "iron_oxide_raw": 0.821,
+      "intensity": 0.032,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.667695,
+      "lng": 107.72774,
+      "iron_oxide_raw": 1.2903,
+      "intensity": 0.343,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.676663,
+      "lng": 107.742451,
+      "iron_oxide_raw": 1.0529,
+      "intensity": 0.186,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.671,
+      "lng": 107.72365,
+      "iron_oxide_raw": 0.8985,
+      "intensity": 0.084,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663635,
+      "lng": 107.739902,
+      "iron_oxide_raw": 0.8741,
+      "intensity": 0.067,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.666226,
+      "lng": 107.719876,
+      "iron_oxide_raw": 0.8693,
+      "intensity": 0.064,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664605,
+      "lng": 107.724639,
+      "iron_oxide_raw": 1.6529,
+      "intensity": 0.584,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.666793,
+      "lng": 107.734475,
+      "iron_oxide_raw": 0.8,
+      "intensity": 0.018,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678062,
+      "lng": 107.719485,
+      "iron_oxide_raw": 1.0344,
+      "intensity": 0.174,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679021,
+      "lng": 107.744389,
+      "iron_oxide_raw": 1.2864,
+      "intensity": 0.341,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.675659,
+      "lng": 107.719064,
+      "iron_oxide_raw": 0.7935,
+      "intensity": 0.014,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.672017,
+      "lng": 107.735644,
+      "iron_oxide_raw": 1.5534,
+      "intensity": 0.518,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.680757,
+      "lng": 107.724282,
+      "iron_oxide_raw": 0.9937,
+      "intensity": 0.147,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.666976,
+      "lng": 107.736234,
+      "iron_oxide_raw": 1.3816,
+      "intensity": 0.404,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.680909,
+      "lng": 107.722502,
+      "iron_oxide_raw": 0.8831,
+      "intensity": 0.073,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668919,
+      "lng": 107.73919,
+      "iron_oxide_raw": 2.2803,
+      "intensity": 1.0,
+      "anomaly_level": "critical"
+    },
+    {
+      "lat": -6.675979,
+      "lng": 107.737758,
+      "iron_oxide_raw": 0.8125,
+      "intensity": 0.026,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.67545,
+      "lng": 107.722145,
+      "iron_oxide_raw": 1.0905,
+      "intensity": 0.211,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670198,
+      "lng": 107.728503,
+      "iron_oxide_raw": 1.1613,
+      "intensity": 0.258,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664135,
+      "lng": 107.734273,
+      "iron_oxide_raw": 1.0086,
+      "intensity": 0.157,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.681185,
+      "lng": 107.730621,
+      "iron_oxide_raw": 0.8486,
+      "intensity": 0.05,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.684894,
+      "lng": 107.724224,
+      "iron_oxide_raw": 0.9482,
+      "intensity": 0.116,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.68213,
+      "lng": 107.731676,
+      "iron_oxide_raw": 0.8551,
+      "intensity": 0.055,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.662319,
+      "lng": 107.734954,
+      "iron_oxide_raw": 1.2361,
+      "intensity": 0.307,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664031,
+      "lng": 107.74041,
+      "iron_oxide_raw": 0.8768,
+      "intensity": 0.069,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.669559,
+      "lng": 107.728733,
+      "iron_oxide_raw": 1.4044,
+      "intensity": 0.419,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.680837,
+      "lng": 107.72877,
+      "iron_oxide_raw": 0.8123,
+      "intensity": 0.026,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.683961,
+      "lng": 107.733773,
+      "iron_oxide_raw": 0.9288,
+      "intensity": 0.104,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664945,
+      "lng": 107.721669,
+      "iron_oxide_raw": 0.9099,
+      "intensity": 0.091,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670502,
+      "lng": 107.744222,
+      "iron_oxide_raw": 0.8593,
+      "intensity": 0.058,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682013,
+      "lng": 107.741269,
+      "iron_oxide_raw": 0.8829,
+      "intensity": 0.073,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.684144,
+      "lng": 107.72736,
+      "iron_oxide_raw": 0.8625,
+      "intensity": 0.06,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678248,
+      "lng": 107.729934,
+      "iron_oxide_raw": 0.8298,
+      "intensity": 0.038,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670515,
+      "lng": 107.733222,
+      "iron_oxide_raw": 1.1615,
+      "intensity": 0.258,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682401,
+      "lng": 107.740976,
+      "iron_oxide_raw": 0.8621,
+      "intensity": 0.059,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.680356,
+      "lng": 107.734709,
+      "iron_oxide_raw": 0.8828,
+      "intensity": 0.073,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661434,
+      "lng": 107.722584,
+      "iron_oxide_raw": 1.28,
+      "intensity": 0.337,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.674916,
+      "lng": 107.722441,
+      "iron_oxide_raw": 0.9527,
+      "intensity": 0.119,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.660883,
+      "lng": 107.715026,
+      "iron_oxide_raw": 1.0853,
+      "intensity": 0.207,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668635,
+      "lng": 107.743656,
+      "iron_oxide_raw": 0.7968,
+      "intensity": 0.016,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.673586,
+      "lng": 107.725751,
+      "iron_oxide_raw": 1.0985,
+      "intensity": 0.216,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.676544,
+      "lng": 107.736977,
+      "iron_oxide_raw": 0.8071,
+      "intensity": 0.023,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664515,
+      "lng": 107.740557,
+      "iron_oxide_raw": 0.8685,
+      "intensity": 0.064,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.675536,
+      "lng": 107.729133,
+      "iron_oxide_raw": 1.2995,
+      "intensity": 0.349,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664348,
+      "lng": 107.73631,
+      "iron_oxide_raw": 1.533,
+      "intensity": 0.504,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.67739,
+      "lng": 107.727736,
+      "iron_oxide_raw": 0.8875,
+      "intensity": 0.076,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682546,
+      "lng": 107.724217,
+      "iron_oxide_raw": 0.8289,
+      "intensity": 0.037,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668065,
+      "lng": 107.722031,
+      "iron_oxide_raw": 0.9035,
+      "intensity": 0.087,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.667112,
+      "lng": 107.718137,
+      "iron_oxide_raw": 1.4197,
+      "intensity": 0.429,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.683775,
+      "lng": 107.71778,
+      "iron_oxide_raw": 1.0143,
+      "intensity": 0.16,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670514,
+      "lng": 107.720862,
+      "iron_oxide_raw": 0.8121,
+      "intensity": 0.026,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661217,
+      "lng": 107.737955,
+      "iron_oxide_raw": 0.9931,
+      "intensity": 0.146,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.669112,
+      "lng": 107.74267,
+      "iron_oxide_raw": 2.0898,
+      "intensity": 0.874,
+      "anomaly_level": "critical"
+    },
+    {
+      "lat": -6.672026,
+      "lng": 107.728144,
+      "iron_oxide_raw": 0.8753,
+      "intensity": 0.068,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664626,
+      "lng": 107.717665,
+      "iron_oxide_raw": 0.8425,
+      "intensity": 0.046,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.660988,
+      "lng": 107.735106,
+      "iron_oxide_raw": 1.7221,
+      "intensity": 0.63,
+      "anomaly_level": "high"
+    },
+    {
+      "lat": -6.673234,
+      "lng": 107.731836,
+      "iron_oxide_raw": 1.5876,
+      "intensity": 0.541,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.68133,
+      "lng": 107.739009,
+      "iron_oxide_raw": 1.4919,
+      "intensity": 0.477,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.668221,
+      "lng": 107.728356,
+      "iron_oxide_raw": 1.4599,
+      "intensity": 0.456,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.668621,
+      "lng": 107.731261,
+      "iron_oxide_raw": 0.9227,
+      "intensity": 0.1,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.675609,
+      "lng": 107.741979,
+      "iron_oxide_raw": 1.0363,
+      "intensity": 0.175,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.669656,
+      "lng": 107.72908,
+      "iron_oxide_raw": 1.6083,
+      "intensity": 0.554,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.678022,
+      "lng": 107.724489,
+      "iron_oxide_raw": 0.9653,
+      "intensity": 0.128,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.6731,
+      "lng": 107.71952,
+      "iron_oxide_raw": 0.8006,
+      "intensity": 0.019,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.660287,
+      "lng": 107.71756,
+      "iron_oxide_raw": 0.9108,
+      "intensity": 0.092,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.674091,
+      "lng": 107.739143,
+      "iron_oxide_raw": 0.9155,
+      "intensity": 0.095,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682829,
+      "lng": 107.734141,
+      "iron_oxide_raw": 0.9053,
+      "intensity": 0.088,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.66428,
+      "lng": 107.742369,
+      "iron_oxide_raw": 1.1769,
+      "intensity": 0.268,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.67545,
+      "lng": 107.739146,
+      "iron_oxide_raw": 0.8482,
+      "intensity": 0.05,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.669434,
+      "lng": 107.73779,
+      "iron_oxide_raw": 1.916,
+      "intensity": 0.758,
+      "anomaly_level": "high"
+    },
+    {
+      "lat": -6.679773,
+      "lng": 107.736022,
+      "iron_oxide_raw": 0.8364,
+      "intensity": 0.042,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.672496,
+      "lng": 107.723379,
+      "iron_oxide_raw": 0.9444,
+      "intensity": 0.114,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.67936,
+      "lng": 107.735459,
+      "iron_oxide_raw": 0.839,
+      "intensity": 0.044,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.671675,
+      "lng": 107.743771,
+      "iron_oxide_raw": 1.6542,
+      "intensity": 0.585,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.683397,
+      "lng": 107.715488,
+      "iron_oxide_raw": 1.4073,
+      "intensity": 0.421,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.661747,
+      "lng": 107.737627,
+      "iron_oxide_raw": 1.2154,
+      "intensity": 0.294,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.66188,
+      "lng": 107.741505,
+      "iron_oxide_raw": 0.8601,
+      "intensity": 0.058,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.665027,
+      "lng": 107.729023,
+      "iron_oxide_raw": 1.6313,
+      "intensity": 0.57,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.684203,
+      "lng": 107.737247,
+      "iron_oxide_raw": 0.8576,
+      "intensity": 0.056,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677107,
+      "lng": 107.739845,
+      "iron_oxide_raw": 0.8082,
+      "intensity": 0.024,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677293,
+      "lng": 107.716951,
+      "iron_oxide_raw": 0.8333,
+      "intensity": 0.04,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.664206,
+      "lng": 107.743097,
+      "iron_oxide_raw": 1.878,
+      "intensity": 0.733,
+      "anomaly_level": "high"
+    },
+    {
+      "lat": -6.671453,
+      "lng": 107.732782,
+      "iron_oxide_raw": 1.2353,
+      "intensity": 0.307,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.66336,
+      "lng": 107.731793,
+      "iron_oxide_raw": 0.9327,
+      "intensity": 0.106,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.680851,
+      "lng": 107.733404,
+      "iron_oxide_raw": 0.835,
+      "intensity": 0.041,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.666124,
+      "lng": 107.731671,
+      "iron_oxide_raw": 0.9894,
+      "intensity": 0.144,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663352,
+      "lng": 107.738234,
+      "iron_oxide_raw": 1.2022,
+      "intensity": 0.285,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677073,
+      "lng": 107.718656,
+      "iron_oxide_raw": 0.8156,
+      "intensity": 0.029,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.67572,
+      "lng": 107.744786,
+      "iron_oxide_raw": 1.1067,
+      "intensity": 0.222,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679784,
+      "lng": 107.729318,
+      "iron_oxide_raw": 0.8322,
+      "intensity": 0.04,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679277,
+      "lng": 107.733682,
+      "iron_oxide_raw": 0.8522,
+      "intensity": 0.053,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661704,
+      "lng": 107.733962,
+      "iron_oxide_raw": 1.0466,
+      "intensity": 0.182,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.68186,
+      "lng": 107.736543,
+      "iron_oxide_raw": 0.9043,
+      "intensity": 0.087,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.671313,
+      "lng": 107.733273,
+      "iron_oxide_raw": 1.5635,
+      "intensity": 0.525,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.681671,
+      "lng": 107.7401,
+      "iron_oxide_raw": 1.4096,
+      "intensity": 0.423,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.660954,
+      "lng": 107.721435,
+      "iron_oxide_raw": 0.9725,
+      "intensity": 0.133,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668696,
+      "lng": 107.721013,
+      "iron_oxide_raw": 1.0865,
+      "intensity": 0.208,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.67142,
+      "lng": 107.740361,
+      "iron_oxide_raw": 1.3895,
+      "intensity": 0.409,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.673085,
+      "lng": 107.73157,
+      "iron_oxide_raw": 1.6662,
+      "intensity": 0.593,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.66352,
+      "lng": 107.723282,
+      "iron_oxide_raw": 1.2371,
+      "intensity": 0.308,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663645,
+      "lng": 107.738783,
+      "iron_oxide_raw": 1.0117,
+      "intensity": 0.159,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.660458,
+      "lng": 107.742116,
+      "iron_oxide_raw": 0.853,
+      "intensity": 0.053,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679862,
+      "lng": 107.71737,
+      "iron_oxide_raw": 0.8369,
+      "intensity": 0.043,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.684435,
+      "lng": 107.742758,
+      "iron_oxide_raw": 0.8265,
+      "intensity": 0.036,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.680728,
+      "lng": 107.733391,
+      "iron_oxide_raw": 0.8997,
+      "intensity": 0.084,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.66117,
+      "lng": 107.729401,
+      "iron_oxide_raw": 1.129,
+      "intensity": 0.236,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.684939,
+      "lng": 107.717751,
+      "iron_oxide_raw": 1.0425,
+      "intensity": 0.179,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663849,
+      "lng": 107.724736,
+      "iron_oxide_raw": 1.5064,
+      "intensity": 0.487,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.679672,
+      "lng": 107.72762,
+      "iron_oxide_raw": 0.7918,
+      "intensity": 0.013,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.666166,
+      "lng": 107.734678,
+      "iron_oxide_raw": 0.8776,
+      "intensity": 0.07,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661121,
+      "lng": 107.72027,
+      "iron_oxide_raw": 1.0287,
+      "intensity": 0.17,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.676395,
+      "lng": 107.741043,
+      "iron_oxide_raw": 0.8252,
+      "intensity": 0.035,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.673265,
+      "lng": 107.74004,
+      "iron_oxide_raw": 0.8616,
+      "intensity": 0.059,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661343,
+      "lng": 107.744134,
+      "iron_oxide_raw": 0.9569,
+      "intensity": 0.122,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.673554,
+      "lng": 107.731339,
+      "iron_oxide_raw": 1.309,
+      "intensity": 0.356,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.680038,
+      "lng": 107.722907,
+      "iron_oxide_raw": 0.963,
+      "intensity": 0.126,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677831,
+      "lng": 107.719317,
+      "iron_oxide_raw": 1.0403,
+      "intensity": 0.178,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661666,
+      "lng": 107.728874,
+      "iron_oxide_raw": 1.199,
+      "intensity": 0.283,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668773,
+      "lng": 107.729339,
+      "iron_oxide_raw": 1.3945,
+      "intensity": 0.412,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.662408,
+      "lng": 107.730431,
+      "iron_oxide_raw": 0.8801,
+      "intensity": 0.071,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.677011,
+      "lng": 107.739528,
+      "iron_oxide_raw": 0.8421,
+      "intensity": 0.046,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.68462,
+      "lng": 107.734476,
+      "iron_oxide_raw": 0.8571,
+      "intensity": 0.056,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.670851,
+      "lng": 107.720225,
+      "iron_oxide_raw": 0.9026,
+      "intensity": 0.086,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.676636,
+      "lng": 107.741904,
+      "iron_oxide_raw": 1.2744,
+      "intensity": 0.333,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.66589,
+      "lng": 107.729297,
+      "iron_oxide_raw": 1.2093,
+      "intensity": 0.29,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663019,
+      "lng": 107.717394,
+      "iron_oxide_raw": 0.9874,
+      "intensity": 0.142,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.66676,
+      "lng": 107.74486,
+      "iron_oxide_raw": 1.0488,
+      "intensity": 0.183,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.682002,
+      "lng": 107.732254,
+      "iron_oxide_raw": 0.941,
+      "intensity": 0.112,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.667739,
+      "lng": 107.742947,
+      "iron_oxide_raw": 0.983,
+      "intensity": 0.14,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.661144,
+      "lng": 107.724958,
+      "iron_oxide_raw": 1.6245,
+      "intensity": 0.565,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.663382,
+      "lng": 107.726744,
+      "iron_oxide_raw": 1.3879,
+      "intensity": 0.408,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.68171,
+      "lng": 107.729304,
+      "iron_oxide_raw": 0.8223,
+      "intensity": 0.033,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663446,
+      "lng": 107.741464,
+      "iron_oxide_raw": 0.8206,
+      "intensity": 0.032,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.68289,
+      "lng": 107.738985,
+      "iron_oxide_raw": 1.374,
+      "intensity": 0.399,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.676059,
+      "lng": 107.719594,
+      "iron_oxide_raw": 0.7982,
+      "intensity": 0.017,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.673232,
+      "lng": 107.740802,
+      "iron_oxide_raw": 1.0345,
+      "intensity": 0.174,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.679455,
+      "lng": 107.73426,
+      "iron_oxide_raw": 0.8813,
+      "intensity": 0.072,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.667703,
+      "lng": 107.742264,
+      "iron_oxide_raw": 1.0575,
+      "intensity": 0.189,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.676514,
+      "lng": 107.732894,
+      "iron_oxide_raw": 0.8545,
+      "intensity": 0.054,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.68383,
+      "lng": 107.725086,
+      "iron_oxide_raw": 0.8431,
+      "intensity": 0.047,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.667931,
+      "lng": 107.733341,
+      "iron_oxide_raw": 0.8913,
+      "intensity": 0.079,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678031,
+      "lng": 107.724696,
+      "iron_oxide_raw": 0.9412,
+      "intensity": 0.112,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.674691,
+      "lng": 107.732805,
+      "iron_oxide_raw": 0.9051,
+      "intensity": 0.088,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.669967,
+      "lng": 107.724098,
+      "iron_oxide_raw": 0.8964,
+      "intensity": 0.082,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.671587,
+      "lng": 107.72069,
+      "iron_oxide_raw": 0.8667,
+      "intensity": 0.062,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.680046,
+      "lng": 107.725004,
+      "iron_oxide_raw": 0.8366,
+      "intensity": 0.042,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.681889,
+      "lng": 107.719664,
+      "iron_oxide_raw": 1.0478,
+      "intensity": 0.183,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.66202,
+      "lng": 107.731032,
+      "iron_oxide_raw": 1.1777,
+      "intensity": 0.269,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678054,
+      "lng": 107.720152,
+      "iron_oxide_raw": 0.9493,
+      "intensity": 0.117,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.668573,
+      "lng": 107.743191,
+      "iron_oxide_raw": 0.8321,
+      "intensity": 0.039,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.671207,
+      "lng": 107.740068,
+      "iron_oxide_raw": 1.4343,
+      "intensity": 0.439,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.675565,
+      "lng": 107.721733,
+      "iron_oxide_raw": 0.9586,
+      "intensity": 0.123,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.678016,
+      "lng": 107.72034,
+      "iron_oxide_raw": 0.9468,
+      "intensity": 0.116,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.665553,
+      "lng": 107.71977,
+      "iron_oxide_raw": 0.8719,
+      "intensity": 0.066,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.662467,
+      "lng": 107.730314,
+      "iron_oxide_raw": 0.9277,
+      "intensity": 0.103,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.663032,
+      "lng": 107.738487,
+      "iron_oxide_raw": 0.9685,
+      "intensity": 0.13,
+      "anomaly_level": "low"
+    },
+    {
+      "lat": -6.674095,
+      "lng": 107.728878,
+      "iron_oxide_raw": 1.5062,
+      "intensity": 0.487,
+      "anomaly_level": "moderate"
+    },
+    {
+      "lat": -6.661876,
+      "lng": 107.71946,
+      "iron_oxide_raw": 0.9642,
+      "intensity": 0.127,
+      "anomaly_level": "low"
+    }
   ]
 }

@@ -466,7 +466,7 @@ export default function App() {
             <>
               <div className="tab-bar">
                 {[['scan','🔍 Scan'],['satellite','🛰️ Satelit'],['results','📊 Hasil'],['mineral',' Mineral'],['export','💾 Export']].map(([k,l]) => (
-                  <button key={k} className={`tab-btn ${activeTab===k?'active':''}`} onClick={() => setActiveTab(k)}>{l}</button>
+                  <button key={k} className={`tab-btn ${activeTab===k?'active':''}`} onClick={() => { setActiveTab(k); if (k === 'satellite' && !showSatelliteData) loadSatelliteData(); }}>{l}</button>
                 ))}
               </div>
               <div className="tab-content">
@@ -589,12 +589,14 @@ export default function App() {
 
                   {satelliteMetadata && (
                     <div className="card">
-                      <div className="card-title">Metadata Data</div>
+                      <div className="card-title">Metadata Data Satelit</div>
                       <div className="info-panel">
+                        <div className="info-row"><span className="info-label">Sumber</span><span className="info-value" style={{color: 'var(--green)', fontWeight: 700}}>REAL DATA - {satelliteMetadata.source}</span></div>
                         <div className="info-row"><span className="info-label">Area</span><span className="info-value">{satelliteMetadata.area}</span></div>
                         <div className="info-row"><span className="info-label">Satelit</span><span className="info-value">{satelliteMetadata.satellite}</span></div>
                         <div className="info-row"><span className="info-label">Indeks</span><span className="info-value">{satelliteMetadata.index}</span></div>
                         <div className="info-row"><span className="info-label">Total Titik</span><span className="info-value">{satelliteMetadata.total_points}</span></div>
+                        <div className="info-row"><span className="info-label">Range IO</span><span className="info-value">{satelliteMetadata.value_range?.min} - {satelliteMetadata.value_range?.max}</span></div>
                         <div className="info-row"><span className="info-label">Tanggal</span><span className="info-value">{new Date(satelliteMetadata.date_processed).toLocaleDateString('id-ID')}</span></div>
                       </div>
                     </div>
