@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@tmcw/togeojson": "^7.1.2",
-    "earthengine-api": "^1.0.0",
     "html2canvas": "^1.4.1",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
