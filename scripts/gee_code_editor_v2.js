@@ -4,8 +4,10 @@
 // Paste this into code.earthengine.google.com
 // ============================================================
 
-// Area of Interest - expandable to any location
-var roi = ee.Geometry.Rectangle([107.7150, -6.6850, 107.7450, -6.6600]);
+// Area of Interest - ganti sesuai target lo!
+// Format: [west, south, east, north]
+// Contoh buat titik -6.698657, 107.731760 radius ~2km:
+var roi = ee.Geometry.Rectangle([107.713618, -6.716675, 107.749902, -6.680639]);
 
 // === STEP 1: Load & Filter Imagery ===
 var collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')

@@ -303,12 +303,18 @@ export default function App() {
   }, [])
 
   // === AUTO SCAN ===
-  const startAutoScan = async () => {
-    if (!mapRef.current) return
-    const bounds = mapRef.current.getBounds()
-    const grid = generateScanGrid({ north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() }, gridSpacing)
-    if (!grid.length) { alert('Zoom in ke area lebih kecil untuk scan'); return }
-    if (grid.length > 800) { alert(`Terlalu banyak titik (${grid.length}). Perbesar zoom atau naikkan jarak grid.`); return }
+    const startAutoScan = async () => {
+      if (!mapRef.current) return
+      const bounds = mapRef.current.getBounds()
+      let grid = generateScanGrid({ north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() }, gridSpacing)
+      if (!grid.length) { alert('Zoom in ke area lebih kecil untuk scan'); return }
+      // If too many points, auto-increase grid spacing
+      if (grid.length > 800) {
+        const factor = Math.ceil(grid.length / 600)
+        const newSpacing = gridSpacing * factor
+        grid = generateScanGrid({ north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() }, newSpacing)
+        console.log(`Grid spacing auto-adjusted: ${gridSpacing}m → ${newSpacing}m (${grid.length} points)`)
+      }
 
     setScanning(true); setScanProgress(0); setScanPoints(grid); setAnomalies([])
     setSelectedAnomaly(null); setScanStats(null); setCurvatureData(null); setAiClassifications([])
@@ -426,22 +432,37 @@ export default function App() {
   }
 
   // === CROSS-SECTION PROFILE ===
-  const handleCrossSectionClick = async (start, end) => {
-    setProfileStart(start)
-    setProfileEnd(end)
-    setProfileMode(false)
+    const handleCrossSectionClick = async (start, end) => {
+      setProfileStart(start)
+      setProfileEnd(end)
+      setProfileMode(false)
 
-    // Use scan points for profile
-    const validPoints = scanPoints.filter(p => p.elevation != null && !isNaN(p.elevation))
-    if (validPoints.length < 3) {
-      alert('Lakukan scan area terlebih dahulu untuk membuat profil elevasi.')
-      return
+      // Use scan points for profile, OR fetch elevation on-the-fly
+      let validPoints = scanPoints.filter(p => p.elevation != null && !isNaN(p.elevation))
+      if (validPoints.length < 3) {
+        // Fetch elevation points along the line on-the-fly
+        const steps = 40
+        const pts = []
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps
+          pts.push({
+            lat: start.lat + (end.lat - start.lat) * t,
+            lng: start.lng + (end.lng - start.lng) * t,
+            id: Date.now() + i,
+          })
+        }
+        const elevs = await fetchElevationBatch(pts)
+        validPoints = pts.map((p, i) => ({ ...p, elevation: elevs[i] ?? 0 }))
+        if (validPoints.filter(p => p.elevation > 0).length < 3) {
+          alert('Gagal mengambil data elevasi untuk area ini. Coba scan area dulu.')
+          return
+        }
+      }
+
+      const result = calculateCrossSection(start.lat, start.lng, end.lat, end.lng, validPoints, 60)
+      setProfileResult(result)
+      setActiveTab('profile')
     }
-
-    const result = calculateCrossSection(start.lat, start.lng, end.lat, end.lng, validPoints, 60)
-    setProfileResult(result)
-    setActiveTab('profile')
-  }
 
   // === LOAD SATELLITE DATA (v2) ===
   const loadSatelliteData = async () => {

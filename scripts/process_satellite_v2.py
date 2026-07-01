@@ -20,8 +20,23 @@ except Exception as e:
     ee.Initialize(project=GEE_PROJECT)
     print(f"✓ GEE authenticated and initialized")
 
-# Area of interest (Kasomalang Kulon bounding box)
-ROI_COORDS = [107.7150, -6.6850, 107.7450, -6.6600]
+# Area of interest - dynamic, adjust for your target
+CENTER_LAT = -6.69865741297832
+CENTER_LNG = 107.73176030223203
+RADIUS_KM = 2.0
+
+# Auto-calculate bounding box from center + radius
+LAT_OFFSET = RADIUS_KM / 111.0
+LNG_OFFSET = RADIUS_KM / (111.0 * __import__('math').cos(CENTER_LAT * __import__('math').pi / 180))
+
+ROI_COORDS = [
+    round(CENTER_LNG - LNG_OFFSET, 6),
+    round(CENTER_LAT - LAT_OFFSET, 6),
+    round(CENTER_LNG + LNG_OFFSET, 6),
+    round(CENTER_LAT + LAT_OFFSET, 6),
+]
+print(f"📍 Area: {CENTER_LAT}, {CENTER_LNG}")
+print(f"📐 Bounding box: {ROI_COORDS} ({RADIUS_KM*2:.1f}x{RADIUS_KM*2:.1f} km)")
 roi = ee.Geometry.Rectangle(ROI_COORDS)
 
 
