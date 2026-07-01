@@ -77,6 +77,41 @@ export async function fetchAnomalyData() {
 }
 
 /**
+ * Fetch anomaly data from Vercel API (GEE processing)
+ * @param {Object} params - Query parameters
+ * @returns {Promise<Object>} Anomaly data
+ */
+export async function fetchFromVercelAPI(params = {}) {
+  try {
+    const queryParams = new URLSearchParams({
+      lat: params.lat || -6.6715,
+      lng: params.lng || 107.7285,
+      radius: params.radius || 2,
+      dateFrom: params.dateFrom || '2024-06-01',
+      dateTo: params.dateTo || '2024-10-31'
+    })
+
+    const response = await fetch(`/api/satellite-data?${queryParams}`)
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`)
+    }
+
+    const data = await response.json()
+    
+    if (!data.success) {
+      throw new Error(data.error || 'API returned error')
+    }
+
+    console.log('✓ Fetched satellite data from Vercel API:', data)
+    return data
+  } catch (error) {
+    console.error('Failed to fetch from Vercel API:', error)
+    throw error
+  }
+}
+
+/**
  * Fetch anomaly data for specific area
  * @param {number} lat - Center latitude
  * @param {number} lng - Center longitude

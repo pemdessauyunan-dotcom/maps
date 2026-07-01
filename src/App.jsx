@@ -7,7 +7,7 @@ import { fetchElevationBatch, fetchSurroundingTerrain } from './services/elevati
 import { fetchGeologicalInfo } from './services/geologicalApi'
 import { getAnomalyColor, getAnomalyLabel } from './services/anomalyEngine'
 import { generateContours, generateHeatmapData } from './utils/contour'
-import { fetchAnomalyData, saveToLocalCache, loadFromLocalCache } from './services/supabaseApi'
+import { fetchAnomalyData, saveToLocalCache, loadFromLocalCache, fetchFromVercelAPI } from './services/supabaseApi'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
@@ -316,19 +316,49 @@ export default function App() {
   const loadSatelliteData = async () => {
     setSatelliteLoading(true)
     try {
-      // Try to fetch from Supabase first
-      let data = await fetchAnomalyData()
+      let data = null
       
-      if (!data) {
-        // Fallback to local cache
-        data = loadFromLocalCache()
+      // Try Vercel API first (real-time GEE processing)
+      try {
+        const mapCenter = mapRef.current?.getCenter() || { lat: -6.6715, lng: 107.7285 }
+        const bounds = mapRef.current?.getBounds()
+        const radius = bounds ? Math.max(
+          bounds.getNorth() - bounds.getSouth(),
+          bounds.getEast() - bounds.getWest()
+        ) * 111 / 2 : 2
+        
+        data = await fetchFromVercelAPI({
+          lat: mapCenter.lat,
+          lng: mapCenter.lng,
+          radius: Math.min(radius, 10) // Max 10km radius
+        })
+        console.log('✓ Loaded from Vercel API')
+      } catch (apiError) {
+        console.warn('Vercel API failed, trying fallbacks:', apiError.message)
       }
       
+      // Fallback to Supabase
       if (!data) {
-        // Fallback to bundled sample data
+        try {
+          data = await fetchAnomalyData()
+          console.log('✓ Loaded from Supabase')
+        } catch (supabaseError) {
+          console.warn('Supabase failed:', supabaseError.message)
+        }
+      }
+      
+      // Fallback to local cache
+      if (!data) {
+        data = loadFromLocalCache()
+        if (data) console.log('✓ Loaded from local cache')
+      }
+      
+      // Fallback to bundled sample data
+      if (!data) {
         const response = await fetch('/anomaly_data.json')
         data = await response.json()
         saveToLocalCache(data)
+        console.log('✓ Loaded from bundled sample data')
       }
       
       setSatelliteAnomalies(data.anomalies || [])
@@ -342,7 +372,18 @@ export default function App() {
       }
     } catch (error) {
       console.error('Failed to load satellite data:', error)
-      alert('Gagal memuat data satelit. Pastikan koneksi internet aktif.')
+      alert('Gagal memuat data satelit. Menggunakan data sample.')
+      
+      // Last resort: load sample data
+      try {
+        const response = await fetch('/anomaly_data.json')
+        const data = await response.json()
+        setSatelliteAnomalies(data.anomalies || [])
+        setSatelliteMetadata(data.metadata || null)
+        setShowSatelliteData(true)
+      } catch (e) {
+        console.error('Failed to load sample data:', e)
+      }
     }
     setSatelliteLoading(false)
   }
