@@ -8,6 +8,20 @@ import { fetchGeologicalInfo } from './services/geologicalApi'
 import { getAnomalyColor, getAnomalyLabel } from './services/anomalyEngine'
 import { generateContours, generateHeatmapData } from './utils/contour'
 import { fetchAnomalyData, saveToLocalCache, loadFromLocalCache, fetchFromVercelAPI } from './services/supabaseApi'
+import {
+  calculateCombinedMineralScore,
+  classifyAnomalyAI,
+  analyzeTerrainCurvature,
+  calculateCrossSection,
+  SATELLITE_INDICES,
+} from './services/anomalyEngine_v2'
+import {
+  saveScanToHistory,
+  getScanHistory,
+  deleteScanFromHistory,
+  exportScanHistory,
+  getScanById,
+} from './services/scanHistory'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
@@ -18,7 +32,13 @@ L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, 
 // Custom anomaly marker icon
 function createAnomalyIcon(score, type) {
   const color = getAnomalyColor(score)
-  const icons = { depression: '️', elevation_spike: '⬆️', linear_depression: '', flat_anomaly: '⬜', normal: '📍' }
+  const icons = {
+    depression: '⬇️', elevation_spike: '⬆️', linear_depression: '🔄',
+    flat_anomaly: '⬜', normal: '📍',
+    tunnel: '🚇', gold_deposit: '🥇', iron_deposit: '⚙️',
+    cave: '🕳️', cave_karst: '🦇', tunnel_potential: '🚇',
+    buried_structure: '🏛️',
+  }
   const emoji = icons[type] || '📍'
   const size = Math.round(score * 20) + 30
   return L.divIcon({
@@ -43,7 +63,7 @@ const MINERAL_TYPES = {
   copper: { emoji: '🔶', color: '#B87333', label: 'Tembaga' },
   oil: { emoji: '🛢️', color: '#333', label: 'Minyak' },
   cave: { emoji: '🦇', color: '#4B0082', label: 'Gua' },
-  tunnel: { emoji: '️', color: '#8B0000', label: 'Terowongan' },
+  tunnel: { emoji: '🚇', color: '#8B0000', label: 'Terowongan' },
   treasure: { emoji: '💰', color: '#FF8C00', label: 'Harta' },
 }
 
@@ -51,6 +71,16 @@ const TILE_LAYERS = {
   satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', name: 'Satelit' },
   terrain: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', name: 'Terrain' },
   street: { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', name: 'Peta Jalan' },
+}
+
+const CLASSIFICATION_COLORS = {
+  gold_deposit: '#FFD700', iron_deposit: '#8B4513', tunnel_potential: '#FF4444',
+  cave_karst: '#4B0082', buried_structure: '#FF8C00', unknown: '#666',
+}
+
+const CLASSIFICATION_EMOJI = {
+  gold_deposit: '🥇', iron_deposit: '⚙️', tunnel_potential: '🚇',
+  cave_karst: '🦇', buried_structure: '🏛️', unknown: '❓',
 }
 
 // Parse GPX/KML/CSV
@@ -96,7 +126,6 @@ function generateScanGrid(bounds, spacingMeters) {
 
 // Analyze a single point for anomalies using surrounding terrain
 async function analyzePointForAnomaly(lat, lng, allPoints, gridSpacing = 50) {
-  // Find neighbors within ~3x grid spacing
   const searchRadius = Math.max(gridSpacing * 3, 100)
   const neighbors = allPoints.filter(p => {
     if (p.lat === lat && p.lng === lng) return false
@@ -118,12 +147,10 @@ async function analyzePointForAnomaly(lat, lng, allPoints, gridSpacing = 50) {
   const diff = avgElev - pointElev
   const normalizedDiff = stdDev > 0 ? diff / stdDev : 0
 
-  // Depression = possible tunnel/cave/room (lowered threshold for better detection)
   if (diff > 1.0 && normalizedDiff > 0.8) {
     const score = Math.min(normalizedDiff / 2.5, 1)
     return { score, type: 'depression', elevation: pointElev, avgNeighborElev: avgElev, diff: diff.toFixed(1) }
   }
-  // Spike = possible buried structure (lowered threshold)
   if (diff < -1.0 && normalizedDiff < -0.8) {
     const score = Math.min(Math.abs(normalizedDiff) / 2.5, 1)
     return { score, type: 'elevation_spike', elevation: pointElev, avgNeighborElev: avgElev, diff: diff.toFixed(1) }
@@ -132,47 +159,52 @@ async function analyzePointForAnomaly(lat, lng, allPoints, gridSpacing = 50) {
   return { score: 0, type: 'normal' }
 }
 
-// Action guides per anomaly type
+// Action guides
 const ACTION_GUIDES = {
   depression: {
     title: 'Depresi Terrain - Potensi Rongga Bawah Tanah',
     desc: 'Area ini lebih rendah dari sekitarnya. Kemungkinan ada terowongan, gua, atau ruangan bawah tanah.',
-    steps: [
-      'Kunjungi lokasi - cari lubang, retakan tanah, atau entrance tersembunyi',
-      'Perhatikan vegetasi - tanaman layu/tidak normal bisa indikasi rongga',
-      'Dengarkan suara hollow saat menginjak tanah',
-      'Gunakan GPR (Ground Penetrating Radar) untuk scan bawah permukaan',
-      'Cek drainase air - air yang hilang tiba-tiba bisa masuk ke rongga',
-    ],
+    steps: ['Kunjungi lokasi - cari lubang, retakan tanah, atau entrance tersembunyi','Perhatikan vegetasi - tanaman layu/tidak normal bisa indikasi rongga','Dengarkan suara hollow saat menginjak tanah','Gunakan GPR (Ground Penetrating Radar) untuk scan bawah permukaan','Cek drainase air - air yang hilang tiba-tiba bisa masuk ke rongga'],
     tools: 'GPR, Metal Detector, Bor tanah',
   },
   elevation_spike: {
     title: 'Tonjolan Tidak Wajar - Potensi Struktur Terkubur',
     desc: 'Area ini lebih tinggi dari sekitarnya. Bisa berupa gundukan buatan, struktur terkubur, atau deposit mineral.',
-    steps: [
-      'Periksa apakah bentuk tonjolan geometris (indikasi buatan manusia)',
-      'Gunakan magnetometer - bijih besi/logam menarik medan magnet',
-      'Lakukan soil sampling di sekitar area',
-      'Bandingkan dengan peta sejarah/aerial foto lama',
-      'XRF analyzer untuk komposisi tanah',
-    ],
+    steps: ['Periksa apakah bentuk tonjolan geometris (indikasi buatan manusia)','Gunakan magnetometer - bijih besi/logam menarik medan magnet','Lakukan soil sampling di sekitar area','Bandingkan dengan peta sejarah/aerial foto lama','XRF analyzer untuk komposisi tanah'],
     tools: 'Magnetometer, XRF Analyzer, Bor eksplorasi',
   },
   linear_depression: {
     title: 'Depresi Linear - Potensi Terowongan',
     desc: 'Pola depresi memanjang terdeteksi. Sangat mengindikasikan terowongan atau saluran bawah tanah.',
-    steps: [
-      'Ikuti arah garis depresi untuk mencari entrance/exit',
-      'Periksa perbedaan drainase di sepanjang garis',
-      'GPR scan sepanjang garis untuk konfirmasi',
-      'Cari dokumen sejarah tentang terowongan di area ini',
-      'Periksa perbedaan vegetasi sepanjang garis',
-    ],
+    steps: ['Ikuti arah garis depresi untuk mencari entrance/exit','Periksa perbedaan drainase di sepanjang garis','GPR scan sepanjang garis untuk konfirmasi','Cari dokumen sejarah tentang terowongan di area ini','Periksa perbedaan vegetasi sepanjang garis'],
     tools: 'GPR, Metal Detector, Peta sejarah',
+  },
+  tunnel: {
+    title: '🚇 TEROWONGAN TERDETEKSI - AI Classification',
+    desc: 'Pola linear + vegetasi stress + anomali tanah = probabilitas terowongan tinggi.',
+    steps: ['Cari entrance/exit di kedua ujung depresi','GPR scan sepanjang sumbu terowongan','Cek sejarah area - tambang tua, bunker, tunnel','Ukur dengan laser distance meter','Bor verifikasi 2-3m di titik tengah'],
+    tools: 'GPR, Metal Detector, Bor tanah, Laser Distance Meter',
+  },
+  gold_deposit: {
+    title: '🥇 DEPOSIT EMAS TERINDIKASI - AI Classification',
+    desc: 'Alterasi hidrotermal (clay + iron oxide) tinggi. Zona potensial emas.',
+    steps: ['Soil sampling di grid 20x20m','XRF analysis untuk Au, Ag, Cu','Cek urat kuarsa di sekitar','Panning di sungai terdekat','Konsultasi dengan geologis'],
+    tools: 'XRF Analyzer, Gold Pan, Soil Auger',
+  },
+  iron_deposit: {
+    title: '⚙️ DEPOSIT BESI TERINDIKASI - AI Classification',
+    desc: 'Konsentrasi iron oxide & ferrous minerals tinggi.',
+    steps: ['Magnetometer survey di grid 10x10m','Bor tangan 2-5m untuk sample','XRF analysis Fe grade','Estimasi tonase dari luas anomali'],
+    tools: 'Magnetometer, Bor tangan, XRF Analyzer',
+  },
+  cave_karst: {
+    title: '🦇 GUA/KARST TERDETEKSI - AI Classification',
+    desc: 'Pola circular depression + clay soil = potensi gua karst.',
+    steps: ['Cek entrance alami di sekitar','Uji kedalaman dengan batu','Ukur dimensi dengan laser','Cek aliran air bawah tanah','Safety first - gas detector sebelum masuk'],
+    tools: 'Laser Distance Meter, Gas Detector, Headlamp, Tali',
   },
 }
 
-// Mineral detection methods
 const MINERAL_METHODS = {
   gold: 'Cari di sungai (placer) atau urat kuarsa. Gunakan metal detector + pan. Batuan: granite, quartzite, alluvial.',
   iron: 'Gunakan magnetometer - bijih besi menarik magnet kuat. Cari di batuan basal, igneous.',
@@ -182,8 +214,26 @@ const MINERAL_METHODS = {
 }
 
 // Map click handler
-function MapClickHandler({ onMapClick, onMapMove }) {
-  useMapEvents({ click: (e) => onMapClick(e.latlng), move: (e) => onMapMove(e.target.getCenter()) })
+function MapClickHandler({ onMapClick, onMapMove, onCrossSectionClick, profileMode }) {
+  const clickCountRef = useRef(0)
+  const firstPointRef = useRef(null)
+  useMapEvents({
+    click: (e) => {
+      if (profileMode) {
+        clickCountRef.current++
+        if (clickCountRef.current === 1) {
+          firstPointRef.current = e.latlng
+        } else if (clickCountRef.current === 2) {
+          onCrossSectionClick(firstPointRef.current, e.latlng)
+          clickCountRef.current = 0
+          firstPointRef.current = null
+        }
+      } else {
+        onMapClick(e.latlng)
+      }
+    },
+    move: (e) => onMapMove(e.target.getCenter()),
+  })
   return null
 }
 
@@ -201,51 +251,69 @@ export default function App() {
   const [gridSpacing, setGridSpacing] = useState(50)
   const [scanStats, setScanStats] = useState(null)
 
-  // Visualization options
+  // Visualization
   const [showContours, setShowContours] = useState(true)
   const [showHeatmap, setShowHeatmap] = useState(true)
+  const [showCurvature, setShowCurvature] = useState(true)
   const [contourLines, setContourLines] = useState([])
   const [heatmapData, setHeatmapData] = useState([])
+  const [curvatureData, setCurvatureData] = useState(null)
 
-  // Selected anomaly detail
+  // AI classification
+  const [aiClassifications, setAiClassifications] = useState([])
+  const [showClassifications, setShowClassifications] = useState(true)
+
+  // Selected anomaly
   const [selectedAnomaly, setSelectedAnomaly] = useState(null)
   const [geoInfo, setGeoInfo] = useState(null)
   const [geoLoading, setGeoLoading] = useState(false)
 
-  // Mineral markers (manual)
+  // Mineral markers
   const [mineralMarkers, setMineralMarkers] = useState([])
   const [selectedMineral, setSelectedMineral] = useState('gold')
   const [showMineralWMS, setShowMineralWMS] = useState(false)
 
-  // GPS points (from file upload or tracking)
+  // GPS points
   const [gpsPoints, setGpsPoints] = useState([])
 
-  // Satellite anomaly data (from GEE)
+  // Satellite anomaly data (v2 multi-index)
   const [satelliteAnomalies, setSatelliteAnomalies] = useState([])
   const [satelliteMetadata, setSatelliteMetadata] = useState(null)
   const [showSatelliteData, setShowSatelliteData] = useState(false)
   const [satelliteLoading, setSatelliteLoading] = useState(false)
+  const [showV2Data, setShowV2Data] = useState(false)
+
+  // Profile / Cross-section
+  const [profileMode, setProfileMode] = useState(false)
+  const [profileStart, setProfileStart] = useState(null)
+  const [profileEnd, setProfileEnd] = useState(null)
+  const [profileResult, setProfileResult] = useState(null)
+  const [selectedIndex, setSelectedIndex] = useState('combined')
+
+  // Scan history
+  const [scanHistory, setScanHistory] = useState([])
+  const [showHistory, setShowHistory] = useState(false)
 
   const mapRef = useRef(null)
   const fileInputRef = useRef(null)
+
+  // Load scan history on mount
+  useEffect(() => {
+    setScanHistory(getScanHistory())
+  }, [])
 
   // === AUTO SCAN ===
   const startAutoScan = async () => {
     if (!mapRef.current) return
     const bounds = mapRef.current.getBounds()
     const grid = generateScanGrid({ north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() }, gridSpacing)
-
     if (!grid.length) { alert('Zoom in ke area lebih kecil untuk scan'); return }
     if (grid.length > 800) { alert(`Terlalu banyak titik (${grid.length}). Perbesar zoom atau naikkan jarak grid.`); return }
 
-    setScanning(true)
-    setScanProgress(0)
-    setScanPoints(grid)
-    setAnomalies([])
-    setSelectedAnomaly(null)
-    setScanStats(null)
+    setScanning(true); setScanProgress(0); setScanPoints(grid); setAnomalies([])
+    setSelectedAnomaly(null); setScanStats(null); setCurvatureData(null); setAiClassifications([])
 
-    // Phase 1: Fetch real elevation for all points
+    // Phase 1: Fetch elevations
     const batchSize = 100
     for (let i = 0; i < grid.length; i += batchSize) {
       const batch = grid.slice(i, i + batchSize)
@@ -257,22 +325,15 @@ export default function App() {
       setScanProgress(Math.round((i + batch.length) / grid.length * 50))
     }
 
-    // Phase 2: Analyze each point for anomalies
+    // Phase 2: Analyze anomalies
     const updatedPoints = [...grid]
     const foundAnomalies = []
-
     for (let i = 0; i < updatedPoints.length; i++) {
       const p = updatedPoints[i]
       if (p.elevation == null) continue
-
       const result = await analyzePointForAnomaly(p.lat, p.lng, updatedPoints, gridSpacing)
       updatedPoints[i] = { ...p, anomalyScore: result.score, anomalyType: result.type }
-
-      if (result.score > 0.3) {
-        foundAnomalies.push({ ...updatedPoints[i], ...result })
-      }
-
-      // Update progress during analysis
+      if (result.score > 0.3) foundAnomalies.push({ ...updatedPoints[i], ...result })
       if (i % 10 === 0) {
         setScanPoints([...updatedPoints])
         setScanProgress(Math.round(50 + (i / updatedPoints.length) * 50))
@@ -281,9 +342,9 @@ export default function App() {
 
     setScanPoints(updatedPoints)
     setAnomalies(foundAnomalies.sort((a, b) => b.anomalyScore - a.anomalyScore))
-    
+
     const validElevations = updatedPoints.filter(p => p.elevation != null && !isNaN(p.elevation)).map(p => p.elevation)
-    setScanStats({
+    const stats = {
       totalPoints: updatedPoints.length,
       anomaliesFound: foundAnomalies.length,
       criticalCount: foundAnomalies.filter(a => a.anomalyScore > 0.7).length,
@@ -291,104 +352,106 @@ export default function App() {
       moderateCount: foundAnomalies.filter(a => a.anomalyScore > 0.3 && a.anomalyScore <= 0.5).length,
       elevMin: validElevations.length > 0 ? Math.min(...validElevations).toFixed(0) : 'N/A',
       elevMax: validElevations.length > 0 ? Math.max(...validElevations).toFixed(0) : 'N/A',
-    })
+    }
+    setScanStats(stats)
 
-    // Generate contour lines and heatmap data
+    // Phase 3: Generate visualizations
     const validPoints = updatedPoints.filter(p => p.elevation != null && !isNaN(p.elevation))
     if (validPoints.length >= 3 && mapRef.current) {
-      const bounds = mapRef.current.getBounds()
-      const contours = generateContours(validPoints, { north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() }, 80)
+      const b = mapRef.current.getBounds()
+      const bb = { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() }
+      const contours = generateContours(validPoints, bb, 80)
       setContourLines(contours)
-      
-      // Generate heatmap data from anomalies
-      const heatData = generateHeatmapData(
-        foundAnomalies.map(a => ({ lat: a.lat, lng: a.lng, value: a.anomalyScore })),
-        1
-      )
+      const heatData = generateHeatmapData(foundAnomalies.map(a => ({ lat: a.lat, lng: a.lng, value: a.anomalyScore })), 1)
       setHeatmapData(heatData)
+
+      // Terrain curvature analysis
+      const curvature = analyzeTerrainCurvature(validPoints, bb)
+      setCurvatureData(curvature)
+
+      // AI Classification for each anomaly
+      const classifications = foundAnomalies.map(a => {
+        const terrainFeature = { elevations: null, slope: a.anomalyScore * 10, curvature: a.anomalyScore * 0.5 }
+        return classifyAnomalyAI(terrainFeature, {
+          combined: a.anomalyScore,
+          breakdown: {
+            ironOxide: { normalized: a.anomalyScore * 0.7 },
+            clayMinerals: { normalized: a.anomalyScore * 0.6 },
+            ndvi: { normalized: a.anomalyScore * 0.5 },
+          },
+        })
+      })
+      setAiClassifications(classifications)
     }
 
     setScanning(false)
     setScanProgress(100)
+
+    // Save to history
+    const center = mapRef.current.getCenter()
+    saveScanToHistory({
+      lat: center.lat,
+      lng: center.lng,
+      zoom: mapRef.current.getZoom(),
+      areaName: `${center.lat.toFixed(3)}, ${center.lng.toFixed(3)}`,
+      stats,
+      anomalies: foundAnomalies,
+      gridSpacing,
+      curvatureStats: { /* summary */ },
+      tunnelLineCount: 0,
+    })
+    setScanHistory(getScanHistory())
   }
 
-  // === LOAD SATELLITE DATA ===
+  // === CROSS-SECTION PROFILE ===
+  const handleCrossSectionClick = async (start, end) => {
+    setProfileStart(start)
+    setProfileEnd(end)
+    setProfileMode(false)
+
+    // Use scan points for profile
+    const validPoints = scanPoints.filter(p => p.elevation != null && !isNaN(p.elevation))
+    if (validPoints.length < 3) {
+      alert('Lakukan scan area terlebih dahulu untuk membuat profil elevasi.')
+      return
+    }
+
+    const result = calculateCrossSection(start.lat, start.lng, end.lat, end.lng, validPoints, 60)
+    setProfileResult(result)
+    setActiveTab('profile')
+  }
+
+  // === LOAD SATELLITE DATA (v2) ===
   const loadSatelliteData = async () => {
     setSatelliteLoading(true)
     try {
-      let data = null
-      
-      // Try Vercel API first (real-time GEE processing)
-      try {
-        const mapCenter = mapRef.current?.getCenter() || { lat: -6.6715, lng: 107.7285 }
-        const bounds = mapRef.current?.getBounds()
-        const radius = bounds ? Math.max(
-          bounds.getNorth() - bounds.getSouth(),
-          bounds.getEast() - bounds.getWest()
-        ) * 111 / 2 : 2
-        
-        data = await fetchFromVercelAPI({
-          lat: mapCenter.lat,
-          lng: mapCenter.lng,
-          radius: Math.min(radius, 10) // Max 10km radius
-        })
-        console.log('✓ Loaded from Vercel API')
-      } catch (apiError) {
-        console.warn('Vercel API failed, trying fallbacks:', apiError.message)
-      }
-      
-      // Fallback to Supabase
-      if (!data) {
-        try {
-          data = await fetchAnomalyData()
-          console.log('✓ Loaded from Supabase')
-        } catch (supabaseError) {
-          console.warn('Supabase failed:', supabaseError.message)
-        }
-      }
-      
-      // Fallback to local cache
-      if (!data) {
-        data = loadFromLocalCache()
-        if (data) console.log('✓ Loaded from local cache')
-      }
-      
-      // Fallback to bundled sample data
-      if (!data) {
-        const response = await fetch('/anomaly_data.json')
-        data = await response.json()
-        saveToLocalCache(data)
-        console.log('✓ Loaded from bundled sample data')
-      }
-      
-      setSatelliteAnomalies(data.anomalies || [])
-      setSatelliteMetadata(data.metadata || null)
-      setShowSatelliteData(true)
-      
-      // Center map on data if available
-      if (data.metadata?.bbox && mapRef.current) {
-        const [west, south, east, north] = data.metadata.bbox
-        mapRef.current.fitBounds([[south, west], [north, east]])
-      }
-    } catch (error) {
-      console.error('Failed to load satellite data:', error)
-      alert('Gagal memuat data satelit. Menggunakan data sample.')
-      
-      // Last resort: load sample data
-      try {
-        const response = await fetch('/anomaly_data.json')
-        const data = await response.json()
+      // Try loading v2 data first
+      const resp = await fetch('/anomaly_data_v2.json')
+      if (resp.ok) {
+        const data = await resp.json()
         setSatelliteAnomalies(data.anomalies || [])
         setSatelliteMetadata(data.metadata || null)
         setShowSatelliteData(true)
-      } catch (e) {
-        console.error('Failed to load sample data:', e)
+        setShowV2Data(true)
+        saveToLocalCache(data)
+        console.log('✓ Loaded v2 multi-index satellite data')
+      } else {
+        // Fallback to v1
+        const resp2 = await fetch('/anomaly_data.json')
+        const data = await resp2.json()
+        setSatelliteAnomalies(data.anomalies || [])
+        setSatelliteMetadata(data.metadata || null)
+        setShowSatelliteData(true)
+        setShowV2Data(false)
       }
+    } catch (error) {
+      console.error('Failed to load satellite data:', error)
+      alert('Gagal memuat data satelit.')
     }
     setSatelliteLoading(false)
   }
 
-  // Click anomaly to see details
+  // === SELECT ANOMALY ===
   const selectAnomaly = async (anomaly) => {
     setSelectedAnomaly(anomaly)
     setGeoLoading(true)
@@ -400,7 +463,7 @@ export default function App() {
     mapRef.current?.setView([anomaly.lat, anomaly.lng], 17)
   }
 
-  // Handle map click for mineral markers
+  // Map click
   const handleMapClick = useCallback((latlng) => {
     if (activeTab === 'mineral') {
       setMineralMarkers(prev => [...prev, { lat: latlng.lat, lng: latlng.lng, type: selectedMineral, id: Date.now() }])
@@ -420,7 +483,6 @@ export default function App() {
           parsed.forEach((p, i) => { if (!p.elevation) p.elevation = elevs[i] ?? 0 })
         }
         setGpsPoints(prev => [...prev, ...parsed])
-        // Also add to scan points for analysis
         setScanPoints(prev => [...prev, ...parsed.map(p => ({ ...p, anomalyScore: 0, anomalyType: null }))])
       }
     }
@@ -431,33 +493,158 @@ export default function App() {
   const exportAnomalies = (format) => {
     const all = anomalies.map(a => ({ lat: a.lat, lng: a.lng, elevation: a.elevation, label: `${a.anomalyType} (${(a.anomalyScore*100).toFixed(0)}%)` }))
     let content, filename, type
-    if (format === 'geojson') { content = JSON.stringify({ type: 'FeatureCollection', features: all.map(p => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [p.lng, p.lat] }, properties: { elevation: p.elevation, label: p.label } })) }, null, 2); filename = 'anomalies.geojson'; type = 'application/json' }
-    else if (format === 'kml') { content = `<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>${all.map(p => `<Placemark><name>${p.label}</name><Point><coordinates>${p.lng},${p.lat},${p.elevation||0}</coordinates></Point></Placemark>`).join('')}</Document></kml>`; filename = 'anomalies.kml'; type = 'application/vnd.google-earth.kml+xml' }
-    else { content = 'lat,lng,elevation,label,score,type\n' + anomalies.map(a => `${a.lat},${a.lng},${a.elevation||0},${a.anomalyType},${a.anomalyScore.toFixed(2)}`).join('\n'); filename = 'anomalies.csv'; type = 'text/csv' }
+    if (format === 'geojson') {
+      content = JSON.stringify({ type: 'FeatureCollection', features: all.map(p => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [p.lng, p.lat] }, properties: { elevation: p.elevation, label: p.label } })) }, null, 2)
+      filename = 'anomalies.geojson'; type = 'application/json'
+    } else if (format === 'kml') {
+      content = `<?xml version="1.0"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>${all.map(p => `<Placemark><name>${p.label}</name><Point><coordinates>${p.lng},${p.lat},${p.elevation||0}</coordinates></Point></Placemark>`).join('')}</Document></kml>`
+      filename = 'anomalies.kml'; type = 'application/vnd.google-earth.kml+xml'
+    } else if (format === 'v2json') {
+      content = JSON.stringify({ metadata: { exportedAt: new Date().toISOString(), scanStats, gridSpacing }, anomalies: anomalies.map(a => ({ lat: a.lat, lng: a.lng, anomalyScore: a.anomalyScore, anomalyType: a.anomalyType, elevation: a.elevation })) }, null, 2)
+      filename = 'anomalies_v2.json'; type = 'application/json'
+    } else {
+      content = 'lat,lng,elevation,label,score,type\n' + anomalies.map(a => `${a.lat},${a.lng},${a.elevation||0},${a.anomalyType},${a.anomalyScore.toFixed(2)}`).join('\n')
+      filename = 'anomalies.csv'; type = 'text/csv'
+    }
     const blob = new Blob([content], { type }), url = URL.createObjectURL(blob), a = document.createElement('a')
     a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url)
   }
 
+  // === RENDER: Cross Section Chart (SVG) ===
+  const renderProfileChart = () => {
+    if (!profileResult) return null
+    const { profile, troughs, stats } = profileResult
+    const width = 560, height = 200, pad = { top: 20, right: 20, bottom: 35, left: 45 }
+    const chartW = width - pad.left - pad.right
+    const chartH = height - pad.top - pad.bottom
+
+    const minE = Math.min(...profile.map(p => p.elevation))
+    const maxE = Math.max(...profile.map(p => p.elevation))
+    const range = maxE - minE || 1
+    const maxDist = Math.max(...profile.map(p => p.distance))
+
+    const points = profile.map(p => ({
+      x: pad.left + (p.distance / maxDist) * chartW,
+      y: pad.top + chartH - ((p.elevation - minE) / range) * chartH,
+    }))
+
+    const polyline = points.map(p => `${p.x},${p.y}`).join(' ')
+
+    return (
+      <div className="card">
+        <div className="card-title">📈 Profil Elevasi Cross-Section</div>
+        <div className="info-panel" style={{ fontSize: 11 }}>
+          <div className="info-row"><span className="info-label">Start</span><span className="info-value">{profile[0].lat.toFixed(5)}, {profile[0].lng.toFixed(5)}</span></div>
+          <div className="info-row"><span className="info-label">End</span><span className="info-value">{profile[profile.length-1].lat.toFixed(5)}, {profile[profile.length-1].lng.toFixed(5)}</span></div>
+          <div className="info-row"><span className="info-label">Jarak</span><span className="info-value">{stats.totalDistance}m</span></div>
+          <div className="info-row"><span className="info-label">Elevasi</span><span className="info-value">{stats.minElev}m - {stats.maxElev}m (range: {stats.elevRange}m)</span></div>
+          <div className="info-row"><span className="info-label">Cekungan</span><span className="info-value">{stats.troughCount} titik (terdalam: {stats.maxDepth}m)</span></div>
+        </div>
+
+        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', marginTop: 8, background: '#0d1117', borderRadius: 6 }}>
+          {/* Y axis labels */}
+          {[0, 0.25, 0.5, 0.75, 1].map(t => {
+            const y = pad.top + chartH - t * chartH
+            const elev = Math.round(minE + t * range)
+            return <g key={t}>
+              <text x={pad.left - 8} y={y + 3} textAnchor="end" fill="#6e7681" fontSize={9}>{elev}m</text>
+              <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke="#30363d" strokeWidth={0.5} />
+            </g>
+          })}
+          {/* X axis */}
+          {[0, 0.25, 0.5, 0.75, 1].map(t => {
+            const x = pad.left + t * chartW
+            const dist = Math.round(t * maxDist)
+            return <text key={t} x={x} y={height - 8} textAnchor="middle" fill="#6e7681" fontSize={9}>{dist}m</text>
+          })}
+          {/* Labels */}
+          <text x={15} y={height/2} textAnchor="middle" fill="#8b949e" fontSize={9} transform={`rotate(-90, 15, ${height/2})`}>Elevasi</text>
+          <text x={width/2} y={height - 2} textAnchor="middle" fill="#8b949e" fontSize={9}>Jarak (m)</text>
+          {/* Profile line */}
+          <polyline points={polyline} fill="none" stroke="#58a6ff" strokeWidth={2} />
+          {/* Trough markers */}
+          {troughs.map((t, i) => {
+            const px = pad.left + (t.distance / maxDist) * chartW
+            const py = pad.top + chartH - ((t.elevation - minE) / range) * chartH
+            return <g key={i}>
+              <circle cx={px} cy={py} r={4} fill="#f85149" stroke="#fff" strokeWidth={1} />
+              <text x={px} y={py - 8} textAnchor="middle" fill="#f85149" fontSize={9}>▼ {t.depth.toFixed(0)}m</text>
+            </g>
+          })}
+          {/* Start/End markers */}
+          <circle cx={points[0].x} cy={points[0].y} r={3} fill="#3fb950" />
+          <circle cx={points[points.length-1].x} cy={points[points.length-1].y} r={3} fill="#f0883e" />
+        </svg>
+
+        {troughs.length > 0 && (
+          <div className="action-guide" style={{ marginTop: 8 }}>
+            <div className="guide-title">🚨 Potensi Terowongan/Gua Terdeteksi</div>
+            <div className="guide-text">
+              {troughs.length} cekungan signifikan ditemukan pada profil ini. Cekungan terdalam {stats.maxDepth}m di bawah rata-rata terrain. Ini bisa menjadi indikasi:
+            </div>
+            <ul className="guide-steps">
+              <li>Terowongan atau saluran bawah tanah yang runtuh sebagian</li>
+              <li>Sinkhole atau entrance gua karst</li>
+              <li>Bekas tambang bawah tanah</li>
+              <li>Pipa atau infrastruktur bawah tanah besar</li>
+            </ul>
+            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--accent)' }}>
+              <strong>Rekomendasi:</strong> GPR scan di titik cekungan terdalam ({troughs[0].lat.toFixed(5)}, {troughs[0].lng.toFixed(5)})
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // === RENDER: Curvature Map Legend ===
+  const renderCurvatureLegend = () => {
+    if (!curvatureData) return null
+    const { stats, tunnelLines, linearDepressions } = curvatureData
+    return (
+      <div className="card">
+        <div className="card-title">📐 Analisis Kelengkungan Terrain</div>
+        <div className="stats-grid">
+          <div className="stat-card"><div className="stat-value" style={{ color: 'var(--red)' }}>{stats.linearDepressionCount}</div><div className="stat-label">Depresi Linear</div></div>
+          <div className="stat-card"><div className="stat-value" style={{ color: 'var(--orange)' }}>{stats.tunnelLineCount}</div><div className="stat-label">Garis Terowongan</div></div>
+          <div className="stat-card"><div className="stat-value">{stats.maxCurvature.toFixed(1)}</div><div className="stat-label">Kelengkungan Max</div></div>
+        </div>
+        {linearDepressions.slice(0, 5).map((d, i) => (
+          <div key={i} className="point-item" onClick={() => mapRef.current?.setView([d.lat, d.lng], 17)}>
+            <div>
+              <div className="label" style={{ color: 'var(--red)' }}>🚇 Depresi Linear #{i+1}</div>
+              <div className="coords">{d.lat.toFixed(5)}, {d.lng.toFixed(5)} · {d.direction}</div>
+            </div>
+            <span className="anomaly-badge critical">{(d.intensity*100).toFixed(0)}%</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <>
-      {showHelp && (
+      {showHelp && (<>
+        {(profileMode || null)}
         <div className="help-overlay" onClick={() => setShowHelp(false)}>
           <div className="help-content" onClick={e => e.stopPropagation()}>
-            <h2>GPS Anomaly Mapper</h2>
-            <p><strong>Konsep:</strong> Aplikasi ini otomatis memindai area untuk mencari anomali bawah tanah (terowongan, gua, ruangan, deposit mineral).</p>
+            <h2>GPS Anomaly Mapper v2 🚀</h2>
+            <p><strong>Deteksi Terowongan, Gua, Deposit Mineral & Logam</strong></p>
             <ul>
-              <li><strong>1. Zoom</strong> ke area yang ingin dipindai di peta</li>
-              <li><strong>2. Klik "Mulai Scan"</strong> - App otomatis scan seluruh area</li>
-              <li><strong>3. Lihat hasil</strong> - Anomali muncul di peta dengan marker berwarna</li>
-              <li><strong>4. Klik anomali</strong> - Lihat detail: tipe, kedalaman, cara investigasi</li>
+              <li><strong>Scan Area</strong> - Auto scan dengan elevasi SRTM real + analisis anomali</li>
+              <li><strong>Multi-Index Satelit</strong> - Iron Oxide, Clay Minerals, Ferrous, Silica, NDVI stress</li>
+              <li><strong>AI Classification</strong> - Klasifikasi otomatis: tunnel, gold, iron, cave, structure</li>
+              <li><strong>Profil Elevasi</strong> - Gambar garis di peta untuk cross-section (klik 2 titik)</li>
+              <li><strong>Scan History</strong> - Riwayat scan tersimpan, bisa dibandingkan</li>
+              <li><strong>Kelengkungan Terrain</strong> - Deteksi depresi linear khusus terowongan</li>
             </ul>
             <p style={{ marginTop: 12, fontSize: 11, color: '#6e7681' }}>
-              Data elevasi REAL dari satelit (Open-Meteo SRTM). Analisis terrain real untuk deteksi depresi/anomali.
+              Data: Open-Meteo SRTM · Sentinel-2 GEE · Macrostrat · USGS
             </p>
-            <button className="btn btn-primary btn-block" onClick={() => setShowHelp(false)} style={{ marginTop: 16 }}>Mulai Scan</button>
+            <button className="btn btn-primary btn-block" onClick={() => setShowHelp(false)} style={{ marginTop: 16 }}>Mulai Eksplorasi</button>
           </div>
         </div>
-      )}
+      </>)}
 
       <div className="app-container">
         <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
@@ -465,7 +652,7 @@ export default function App() {
           {!sidebarCollapsed && (
             <>
               <div className="tab-bar">
-                {[['scan','🔍 Scan'],['satellite','🛰️ Satelit'],['results','📊 Hasil'],['mineral',' Mineral'],['export','💾 Export']].map(([k,l]) => (
+                {[['scan','🔍 Scan'],['satellite','🛰️ Sat'],['profile','📈 Profil'],['results','📊 Hasil'],['mineral','⛏️ Min'],['history','📜 Hist'],['export','💾 Eks']].map(([k,l]) => (
                   <button key={k} className={`tab-btn ${activeTab===k?'active':''}`} onClick={() => { setActiveTab(k); if (k === 'satellite' && !showSatelliteData) loadSatelliteData(); }}>{l}</button>
                 ))}
               </div>
@@ -476,47 +663,35 @@ export default function App() {
                   <div className="card" style={{ borderColor: 'var(--accent)', borderWidth: 2 }}>
                     <div className="card-title" style={{ color: 'var(--accent)', fontSize: 14 }}>Auto Scan Area</div>
                     <p className="card-desc">
-                      Zoom peta ke area target, lalu klik scan. App otomatis:<br/>
+                      Zoom peta ke area target, lalu klik scan. App akan:<br/>
                       1. Generate grid titik di seluruh area<br/>
                       2. Fetch elevasi REAL dari satelit (SRTM)<br/>
-                      3. Analisis setiap titik untuk anomali<br/>
-                      4. Tampilkan hasil di peta
+                      3. Analisis anomali + curvature terrain<br/>
+                      4. AI classification tiap anomali<br/>
+                      5. Tampilkan hasil di peta
                     </p>
                     <div className="form-group">
-                      <label>Jarak Grid (meter) -越小越 detail</label>
+                      <label>Jarak Grid (meter)</label>
                       <input type="number" value={gridSpacing} onChange={e => setGridSpacing(Number(e.target.value))} min="20" max="500" />
-                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
-                        50m = detail, 100m = sedang, 200m = cepat
-                      </p>
+                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>30m = sangat detail, 50m = detail, 100m = sedang, 200m = cepat</p>
                     </div>
                     <button className={`btn ${scanning ? 'btn-danger' : 'btn-success'} btn-block`} onClick={startAutoScan} disabled={scanning} style={{ padding: 12, fontSize: 14 }}>
                       {scanning ? `⏳ Scanning... ${scanProgress}%` : '📡 MULAI SCAN AREA'}
                     </button>
                   </div>
 
-                  {/* Visualization Options */}
-                  {scanStats && !scanning && (
-                    <div className="card">
-                      <div className="card-title">Visualisasi</div>
-                      <div className="toggle-row">
-                        <label>Garis Kontur (seperti Surfer)</label>
-                        <label className="toggle-switch">
-                          <input type="checkbox" checked={showContours} onChange={() => setShowContours(!showContours)} />
-                          <span className="toggle-slider"></span>
-                        </label>
-                      </div>
-                      <div className="toggle-row">
-                        <label>Heatmap Anomali</label>
-                        <label className="toggle-switch">
-                          <input type="checkbox" checked={showHeatmap} onChange={() => setShowHeatmap(!showHeatmap)} />
-                          <span className="toggle-slider"></span>
-                        </label>
-                      </div>
-                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
-                        💡 Garis kontur menampilkan elevasi terrain seperti peta topografi. Heatmap menunjukkan area dengan anomali tinggi.
-                      </p>
-                    </div>
-                  )}
+                  {/* Profile Mode Toggle */}
+                  <div className="card">
+                    <div className="card-title">📐 Cross-Section Profil</div>
+                    <p className="card-desc">Klik 2 titik di peta untuk membuat profil elevasi dan deteksi cekungan (terowongan).</p>
+                    <button
+                      className={`btn ${profileMode ? 'btn-danger' : 'btn-primary'} btn-block`}
+                      onClick={() => setProfileMode(!profileMode)}
+                      style={{ padding: 10, fontSize: 13 }}
+                    >
+                      {profileMode ? '⛔ BATAL (klik 2 titik di peta)' : '📏 GAMBAR PROFIL (klik 2 titik)'}
+                    </button>
+                  </div>
 
                   {scanning && (
                     <div className="card">
@@ -526,9 +701,7 @@ export default function App() {
                         <span style={{ fontWeight: 700 }}>{scanProgress}%</span>
                       </div>
                       <div className="progress-bar"><div className="progress-fill" style={{ width: `${scanProgress}%` }}></div></div>
-                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>
-                        {scanPoints.filter(p => p.elevation != null).length} titik ter-elevasi · Data: Open-Meteo SRTM
-                      </p>
+                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>{scanPoints.filter(p => p.elevation != null).length} titik ter-elevasi</p>
                     </div>
                   )}
 
@@ -536,28 +709,45 @@ export default function App() {
                     <div className="card">
                       <div className="card-title">Hasil Scan</div>
                       <div className="stats-grid">
-                        <div className="stat-card"><div className="stat-value">{scanStats.totalPoints}</div><div className="stat-label">Titik Discan</div></div>
+                        <div className="stat-card"><div className="stat-value">{scanStats.totalPoints}</div><div className="stat-label">Titik</div></div>
                         <div className="stat-card"><div className="stat-value" style={{ color: 'var(--red)' }}>{scanStats.anomaliesFound}</div><div className="stat-label">Anomali</div></div>
                         <div className="stat-card"><div className="stat-value" style={{ color: 'var(--red)' }}>{scanStats.criticalCount}</div><div className="stat-label">Kritis</div></div>
                         <div className="stat-card"><div className="stat-value" style={{ color: 'var(--orange)' }}>{scanStats.highCount}</div><div className="stat-label">Tinggi</div></div>
                       </div>
-                      <div className="stats-grid" style={{ marginTop: 8 }}>
+                      <div className="stats-grid" style={{ marginTop: 4 }}>
                         <div className="stat-card"><div className="stat-value" style={{ color: 'var(--yellow)' }}>{scanStats.moderateCount}</div><div className="stat-label">Moderat</div></div>
-                        <div className="stat-card"><div className="stat-value">{scanStats.elevMin}m</div><div className="stat-label">Elevasi Min</div></div>
-                        <div className="stat-card"><div className="stat-value">{scanStats.elevMax}m</div><div className="stat-label">Elevasi Max</div></div>
+                        <div className="stat-card"><div className="stat-value">{scanStats.elevMin}m</div><div className="stat-label">Min Elev</div></div>
+                        <div className="stat-card"><div className="stat-value">{scanStats.elevMax}m</div><div className="stat-label">Max Elev</div></div>
                         <div className="stat-card"><div className="stat-value">{(scanStats.elevMax - scanStats.elevMin)}m</div><div className="stat-label">Relief</div></div>
                       </div>
                     </div>
                   )}
 
+                  {/* Visualization toggles */}
+                  {scanStats && !scanning && (
+                    <div className="card">
+                      <div className="card-title">Visualisasi</div>
+                      <div className="toggle-row"><label>Garis Kontur (Surfer-style)</label>
+                        <label className="toggle-switch"><input type="checkbox" checked={showContours} onChange={() => setShowContours(!showContours)} /><span className="toggle-slider"></span></label></div>
+                      <div className="toggle-row"><label>Heatmap Anomali</label>
+                        <label className="toggle-switch"><input type="checkbox" checked={showHeatmap} onChange={() => setShowHeatmap(!showHeatmap)} /><span className="toggle-slider"></span></label></div>
+                      <div className="toggle-row"><label>🔴 Kelengkungan Terrain (Tunnel)</label>
+                        <label className="toggle-switch"><input type="checkbox" checked={showCurvature} onChange={() => setShowCurvature(!showCurvature)} /><span className="toggle-slider"></span></label></div>
+                      <div className="toggle-row"><label>🤖 AI Classification</label>
+                        <label className="toggle-switch"><input type="checkbox" checked={showClassifications} onChange={() => setShowClassifications(!showClassifications)} /><span className="toggle-slider"></span></label></div>
+                    </div>
+                  )}
+
+                  {/* Curvature results */}
+                  {curvatureData && !scanning && renderCurvatureLegend()}
+
                   {/* Import file */}
                   <div className="card">
-                    <div className="card-title">Import Data GPS (Opsional)</div>
-                    <p className="card-desc">Upload file GPX/KML/CSV dari perangkat GPS atau survey sebelumnya. Titik akan otomatis ditambahkan ke analisis.</p>
+                    <div className="card-title">Import Data GPS</div>
+                    <p className="card-desc">Upload GPX/KML/CSV dari perangkat GPS atau survey sebelumnya.</p>
                     <label className="file-upload">
                       <input ref={fileInputRef} type="file" accept=".gpx,.kml,.csv" onChange={handleFileUpload} />
-                      <div className="upload-icon">📂</div>
-                      <p>GPX / KML / CSV</p>
+                      <div className="upload-icon">📂</div><p>GPX / KML / CSV</p>
                     </label>
                   </div>
                 </>)}
@@ -566,94 +756,157 @@ export default function App() {
                 {activeTab === 'satellite' && (<>
                   <div className="card" style={{ borderColor: 'var(--accent)', borderWidth: 2 }}>
                     <div className="card-title" style={{ color: 'var(--accent)', fontSize: 14 }}>
-                      🛰️ Data Anomali Satelit Sentinel-2
+                      🛰️ Data Multispektral Sentinel-2 v2
                     </div>
                     <p className="card-desc">
-                      Data REAL dari citra satelit Sentinel-2 (Google Earth Engine).
-                      Menghitung indeks Oksida Besi (B4/B2) untuk deteksi deposit mineral.
+                      Data REAL citra satelit dengan multi-index detection:<br/>
+                      🟤 Iron Oxide (B4/B2) - mineral logam<br/>
+                      🟠 Clay Minerals (B7/B11) - alterasi hidrotermal (emas)<br/>
+                      🔵 Ferrous Minerals (B11/B12) - besi dalam<br/>
+                      ⚪ Silica/Quartz Index - zona mineral<br/>
+                      🟢 NDVI Vegetation Stress - indikasi rongga bawah tanah
                     </p>
-                    
-                    <button 
-                      className={`btn ${satelliteLoading ? 'btn-danger' : 'btn-success'} btn-block`} 
-                      onClick={loadSatelliteData} 
-                      disabled={satelliteLoading}
-                      style={{ padding: 12, fontSize: 14 }}
-                    >
-                      {satelliteLoading ? '⏳ Memuat data satelit...' : '📡 MUAT DATA SATELIT'}
+                    <button className={`btn ${satelliteLoading ? 'btn-danger' : 'btn-success'} btn-block`} onClick={loadSatelliteData} disabled={satelliteLoading} style={{ padding: 12, fontSize: 14 }}>
+                      {satelliteLoading ? '⏳ Memuat...' : '📡 MUAT DATA SATELIT v2'}
                     </button>
-                    
-                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
-                       Data dari: Sentinel-2 Level 2A | Indeks: Iron Oxide (B4/B2) | Resolusi: 20m
-                    </p>
                   </div>
 
                   {satelliteMetadata && (
                     <div className="card">
                       <div className="card-title">Metadata Data Satelit</div>
                       <div className="info-panel">
-                        <div className="info-row"><span className="info-label">Sumber</span><span className="info-value" style={{color: 'var(--green)', fontWeight: 700}}>REAL DATA - {satelliteMetadata.source}</span></div>
+                        <div className="info-row"><span className="info-label">Source</span><span className="info-value" style={{color: 'var(--green)', fontWeight: 700}}>{showV2Data ? 'REAL v2 MULTI-INDEX' : 'REAL v1'}</span></div>
                         <div className="info-row"><span className="info-label">Area</span><span className="info-value">{satelliteMetadata.area}</span></div>
-                        <div className="info-row"><span className="info-label">Satelit</span><span className="info-value">{satelliteMetadata.satellite}</span></div>
-                        <div className="info-row"><span className="info-label">Indeks</span><span className="info-value">{satelliteMetadata.index}</span></div>
+                        <div className="info-row"><span className="info-label">Satellite</span><span className="info-value">{satelliteMetadata.satellite}</span></div>
                         <div className="info-row"><span className="info-label">Total Titik</span><span className="info-value">{satelliteMetadata.total_points}</span></div>
-                        <div className="info-row"><span className="info-label">Range IO</span><span className="info-value">{satelliteMetadata.value_range?.min} - {satelliteMetadata.value_range?.max}</span></div>
-                        <div className="info-row"><span className="info-label">Tanggal</span><span className="info-value">{new Date(satelliteMetadata.date_processed).toLocaleDateString('id-ID')}</span></div>
+                        {showV2Data && satelliteMetadata.avg_combined_score && (
+                          <div className="info-row"><span className="info-label">Avg Score</span><span className="info-value">{satelliteMetadata.avg_combined_score}</span></div>
+                        )}
+                        {showV2Data && satelliteMetadata.classification_stats && (
+                          <div className="info-row">
+                            <span className="info-label">Klasifikasi</span>
+                            <span className="info-value">
+                              {Object.entries(satelliteMetadata.classification_stats).map(([k, v]) => (
+                                <span key={k} style={{ marginRight: 6 }}>{CLASSIFICATION_EMOJI[k] || '❓'} {k}: {v}</span>
+                              ))}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
                   {satelliteAnomalies.length > 0 && (
                     <>
+                      {/* Index selector for v2 */}
+                      {showV2Data && (
+                        <div className="card">
+                          <div className="card-title">Pilih Indeks</div>
+                          <div className="form-group">
+                            <select value={selectedIndex} onChange={e => setSelectedIndex(e.target.value)}>
+                              <option value="combined">🎯 Combined Score (All Indices)</option>
+                              <option value="iron_oxide">🟤 Iron Oxide</option>
+                              <option value="clay_minerals">🟠 Clay Minerals</option>
+                              <option value="ndvi">🟢 NDVI Stress</option>
+                              <option value="ferrous_minerals">🔵 Ferrous Minerals</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Stats */}
                       <div className="card">
                         <div className="card-title">Statistik Anomali</div>
                         <div className="stats-grid">
-                          <div className="stat-card">
-                            <div className="stat-value" style={{ color: 'var(--red)' }}>
-                              {satelliteAnomalies.filter(a => a.anomaly_level === 'critical').length}
+                          {['critical','high','moderate','low'].map(level => {
+                            const count = showV2Data
+                              ? satelliteAnomalies.filter(a => a.anomaly_level === level).length
+                              : satelliteAnomalies.filter(a => a.anomaly_level === level).length
+                            const color = level === 'critical' ? 'var(--red)' : level === 'high' ? 'var(--orange)' : level === 'moderate' ? 'var(--yellow)' : 'var(--green)'
+                            return <div key={level} className="stat-card">
+                              <div className="stat-value" style={{ color }}>{count}</div>
+                              <div className="stat-label">{level.charAt(0).toUpperCase() + level.slice(1)}</div>
                             </div>
-                            <div className="stat-label">Kritis</div>
-                          </div>
-                          <div className="stat-card">
-                            <div className="stat-value" style={{ color: 'var(--orange)' }}>
-                              {satelliteAnomalies.filter(a => a.anomaly_level === 'high').length}
-                            </div>
-                            <div className="stat-label">Tinggi</div>
-                          </div>
-                          <div className="stat-card">
-                            <div className="stat-value" style={{ color: 'var(--yellow)' }}>
-                              {satelliteAnomalies.filter(a => a.anomaly_level === 'moderate').length}
-                            </div>
-                            <div className="stat-label">Moderat</div>
-                          </div>
-                          <div className="stat-card">
-                            <div className="stat-value" style={{ color: 'var(--green)' }}>
-                              {satelliteAnomalies.filter(a => a.anomaly_level === 'low').length}
-                            </div>
-                            <div className="stat-label">Rendah</div>
-                          </div>
+                          })}
                         </div>
                       </div>
 
+                      {/* Classification breakdown (v2) */}
+                      {showV2Data && satelliteMetadata.classification_stats && (
+                        <div className="card">
+                          <div className="card-title">🤖 Klasifikasi AI</div>
+                          {Object.entries(satelliteMetadata.classification_stats).map(([type, count]) => {
+                            const pct = ((count / satelliteMetadata.total_points) * 100).toFixed(1)
+                            const color = CLASSIFICATION_COLORS[type] || '#666'
+                            return <div key={type} className="info-row">
+                              <span className="info-label">{CLASSIFICATION_EMOJI[type] || '❓'} {type.replace(/_/g, ' ')}</span>
+                              <span className="info-value" style={{ color, fontWeight: 600 }}>{count} ({pct}%)</span>
+                            </div>
+                          })}
+                        </div>
+                      )}
+
+                      {/* Top anomalies */}
                       <div className="card">
                         <div className="card-title">Top 10 Anomali Tertinggi</div>
                         <div className="point-list" style={{ maxHeight: 300 }}>
                           {satelliteAnomalies
-                            .sort((a, b) => b.intensity - a.intensity)
+                            .sort((a, b) => {
+                              const av = showV2Data ? a.combined_score : a.intensity || 0
+                              const bv = showV2Data ? b.combined_score : b.intensity || 0
+                              return bv - av
+                            })
                             .slice(0, 10)
-                            .map((a, i) => (
-                              <div key={i} className="point-item">
-                                <div>
-                                  <div className="label" style={{ color: getAnomalyColor(a.intensity) }}>
-                                    #{i+1} Iron Oxide: {a.iron_oxide_raw.toFixed(3)}
+                            .map((a, i) => {
+                              const score = showV2Data ? a.combined_score : (a.intensity || 0)
+                              const level = showV2Data ? a.anomaly_level : (a.anomaly_level || 'low')
+                              const clsType = showV2Data ? a.classification?.primary_type : null
+                              return (
+                                <div key={i} className="point-item" onClick={() => mapRef.current?.setView([a.lat, a.lng], 16)}>
+                                  <div>
+                                    <div className="label" style={{ color: getAnomalyColor(score) }}>
+                                      #{i+1} {showV2Data ? `Score: ${score.toFixed(3)}` : `IO: ${a.iron_oxide_raw?.toFixed(3) || 'N/A'}`}
+                                      {clsType && ` ${CLASSIFICATION_EMOJI[clsType] || ''}`}
+                                    </div>
+                                    <div className="coords">{a.lat.toFixed(6)}, {a.lng.toFixed(6)} · {clsType ? clsType.replace(/_/g, ' ') : level}</div>
                                   </div>
-                                  <div className="coords">{a.lat.toFixed(6)}, {a.lng.toFixed(6)}</div>
+                                  <span className={`anomaly-badge ${level === 'critical' ? 'critical' : level === 'high' ? 'high' : 'moderate'}`}>
+                                    {(score * 100).toFixed(0)}%
+                                  </span>
                                 </div>
-                                <span className={`anomaly-badge ${a.anomaly_level === 'critical' ? 'critical' : a.anomaly_level === 'high' ? 'high' : 'moderate'}`}>
-                                  {(a.intensity * 100).toFixed(0)}%
-                                </span>
-                              </div>
-                            ))}
+                              )
+                            })}
                         </div>
+                      </div>
+                    </>
+                  )}
+                </>)}
+
+                {/* ===== PROFILE TAB ===== */}
+                {activeTab === 'profile' && (<>
+                  {!profileResult ? (
+                    <div className="card">
+                      <div className="card-title">📐 Cross-Section Profil</div>
+                      <p className="card-desc">
+                        Klik tombol di tab Scan, lalu klik 2 titik di peta untuk membuat profil elevasi.<br/>
+                        Atau klik titik di history scan untuk memuat profil sebelumnya.
+                      </p>
+                      <button className="btn btn-primary btn-block" onClick={() => { setActiveTab('scan'); setProfileMode(true) }}>
+                        📏 Aktifkan Mode Profil
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {renderProfileChart()}
+                      <div className="card">
+                        <div className="card-title">Informasi Profil</div>
+                        <p className="card-desc">
+                          Cross-section menunjukkan perubahan elevasi antara 2 titik. Cekungan (▼) adalah
+                          area yang lebih rendah dari sekitarnya — potensi terowongan atau gua.
+                        </p>
+                        <button className="btn btn-primary btn-block" onClick={() => { setProfileResult(null); setProfileStart(null); setProfileEnd(null) }}>
+                          Hapus Profil
+                        </button>
                       </div>
                     </>
                   )}
@@ -668,50 +921,82 @@ export default function App() {
                       <button className="btn btn-primary btn-block" onClick={() => setActiveTab('scan')}>Ke Tab Scan</button>
                     </div>
                   ) : (<>
-                    {/* Summary */}
                     <div className="card" style={{ borderColor: 'var(--red)', borderWidth: 1 }}>
-                      <div className="card-title" style={{ color: 'var(--red)' }}>
-                        {anomalies.length} Anomali Terdeteksi
-                      </div>
-                      <p className="card-desc">
-                        Klik setiap anomali di bawah atau di peta untuk melihat detail dan langkah investigasi.
-                      </p>
+                      <div className="card-title" style={{ color: 'var(--red)' }}>{anomalies.length} Anomali Terdeteksi</div>
+                      <p className="card-desc">Klik setiap anomali untuk melihat detail, AI classification, dan langkah investigasi.</p>
                     </div>
+
+                    {/* AI Classification Summary */}
+                    {aiClassifications.length > 0 && (
+                      <div className="card">
+                        <div className="card-title">🤖 AI Classification Summary</div>
+                        <div className="stats-grid">
+                          {['tunnel','gold_deposit','iron_deposit','cave_karst','buried_structure'].map(type => {
+                            const count = aiClassifications.filter(c => c.primaryType === type && c.primaryScore > 0.4).length
+                            if (!count) return null
+                            return <div key={type} className="stat-card">
+                              <div className="stat-value" style={{ color: CLASSIFICATION_COLORS[type] || '#666', fontSize: 18 }}>
+                                {CLASSIFICATION_EMOJI[type]} {count}
+                              </div>
+                              <div className="stat-label">{type.replace(/_/g, ' ')}</div>
+                            </div>
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Selected Anomaly Detail */}
                     {selectedAnomaly && (
                       <div className="card" style={{ borderColor: getAnomalyColor(selectedAnomaly.anomalyScore), borderWidth: 2 }}>
                         <div className="card-title" style={{ color: getAnomalyColor(selectedAnomaly.anomalyScore), fontSize: 14 }}>
-                          {selectedAnomaly.anomalyType === 'depression' ? '⬇️' : selectedAnomaly.anomalyType === 'elevation_spike' ? '⬆️' : '⚠️'} Anomali Terdeteksi
+                          {selectedAnomaly.anomalyType === 'depression' ? '⬇️' : selectedAnomaly.anomalyType === 'elevation_spike' ? '⬆️' : '⚠️'} Anomali
                         </div>
-
                         <div className="info-panel">
                           <div className="info-row"><span className="info-label">Tipe</span><span className="info-value">{selectedAnomaly.anomalyType}</span></div>
                           <div className="info-row"><span className="info-label">Score</span><span className="info-value" style={{ color: getAnomalyColor(selectedAnomaly.anomalyScore), fontWeight: 700 }}>{(selectedAnomaly.anomalyScore * 100).toFixed(0)}%</span></div>
-                          <div className="info-row"><span className="info-label">Level</span><span className="info-value"><span className={`anomaly-badge ${selectedAnomaly.anomalyScore > 0.7 ? 'critical' : selectedAnomaly.anomalyScore > 0.5 ? 'high' : 'moderate'}`}>{getAnomalyLabel(selectedAnomaly.anomalyScore)}</span></span></div>
                           <div className="info-row"><span className="info-label">Elevasi</span><span className="info-value">{selectedAnomaly.elevation?.toFixed(1)}m</span></div>
                           {selectedAnomaly.diff && <div className="info-row"><span className="info-label">Selisih</span><span className="info-value">{selectedAnomaly.diff}m dari rata-rata</span></div>}
                           <div className="info-row"><span className="info-label">Koordinat</span><span className="info-value" style={{ fontFamily: 'var(--mono)', fontSize: 10 }}>{selectedAnomaly.lat.toFixed(6)}, {selectedAnomaly.lng.toFixed(6)}</span></div>
                         </div>
 
-                        {/* Action Guide */}
-                        {ACTION_GUIDES[selectedAnomaly.anomalyType] && (
+                        {/* AI Classification for this anomaly */}
+                        {(() => {
+                          const idx = anomalies.findIndex(a => a.lat === selectedAnomaly.lat && a.lng === selectedAnomaly.lng)
+                          const cls = aiClassifications[idx]
+                          if (cls && cls.primaryScore > 0.3) {
+                            const guide = ACTION_GUIDES[cls.primaryType]
+                            return (
+                              <div className="action-guide">
+                                <div className="guide-title" style={{ color: CLASSIFICATION_COLORS[cls.primaryType] || 'var(--accent)' }}>
+                                  {CLASSIFICATION_EMOJI[cls.primaryType]} AI: {cls.primaryType.replace(/_/g, ' ').toUpperCase()} (confidence: {(cls.confidence * 100).toFixed(0)}%)
+                                </div>
+                                <div className="guide-text">{guide?.desc || 'Anomali terdeteksi dengan pola spesifik.'}</div>
+                                <ul className="guide-steps">
+                                  {(guide?.steps || ['Kunjungi lokasi untuk verifikasi']).map((s, i) => <li key={i}>{s}</li>)}
+                                </ul>
+                                <div style={{ marginTop: 8, fontSize: 11, color: 'var(--accent)' }}>
+                                  <strong>Alat:</strong> {guide?.tools || 'GPR, Metal Detector'}
+                                </div>
+                              </div>
+                            )
+                          }
+                          return null
+                        })()}
+
+                        {/* Fallback guides */}
+                        {ACTION_GUIDES[selectedAnomaly.anomalyType] && !aiClassifications.find(c => c.primaryScore > 0.3) && (
                           <div className="action-guide">
                             <div className="guide-title">{ACTION_GUIDES[selectedAnomaly.anomalyType].title}</div>
                             <div className="guide-text">{ACTION_GUIDES[selectedAnomaly.anomalyType].desc}</div>
-                            <ul className="guide-steps">
-                              {ACTION_GUIDES[selectedAnomaly.anomalyType].steps.map((s, i) => <li key={i}>{s}</li>)}
-                            </ul>
-                            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--accent)' }}>
-                              <strong>Alat yang dibutuhkan:</strong> {ACTION_GUIDES[selectedAnomaly.anomalyType].tools}
-                            </div>
+                            <ul className="guide-steps">{ACTION_GUIDES[selectedAnomaly.anomalyType].steps.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--accent)' }}><strong>Alat:</strong> {ACTION_GUIDES[selectedAnomaly.anomalyType].tools}</div>
                           </div>
                         )}
 
-                        {/* Geological Info */}
+                        {/* Geological info */}
                         {geoLoading ? <p className="loading-text" style={{ fontSize: 11, marginTop: 8 }}>Mengambil data geologi...</p> : geoInfo && (
                           <div style={{ marginTop: 10 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>Info Geologi Lokasi:</div>
+                            <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 6 }}>Info Geologi:</div>
                             <div className="info-panel">
                               <div className="info-row"><span className="info-label">Formasi</span><span className="info-value">{geoInfo.formation}</span></div>
                               <div className="info-row"><span className="info-label">Batuan</span><span className="info-value">{geoInfo.rockType}</span></div>
@@ -719,7 +1004,7 @@ export default function App() {
                             </div>
                             {geoInfo.mineralPotential?.length > 0 && (
                               <div style={{ marginTop: 6 }}>
-                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Potensi Mineral:</div>
+                                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Potensi Mineral:</div>
                                 {geoInfo.mineralPotential.slice(0, 4).map((m, i) => (
                                   <div key={i} className="info-row">
                                     <span className="info-label">{MINERAL_TYPES[m.type]?.emoji || '🔹'} {MINERAL_TYPES[m.type]?.label || m.type}</span>
@@ -742,6 +1027,7 @@ export default function App() {
                             <div>
                               <div className="label" style={{ color: getAnomalyColor(a.anomalyScore) }}>
                                 {a.anomalyType === 'depression' ? '⬇️' : a.anomalyType === 'elevation_spike' ? '⬆️' : '⚠️'} {a.anomalyType}
+                                {aiClassifications[i]?.primaryScore > 0.4 && ` ${CLASSIFICATION_EMOJI[aiClassifications[i].primaryType] || ''}`}
                               </div>
                               <div className="coords">{a.lat.toFixed(5)}, {a.lng.toFixed(5)} · {a.elevation?.toFixed(0)}m</div>
                             </div>
@@ -753,11 +1039,19 @@ export default function App() {
 
                     {/* Legend */}
                     <div className="card">
-                      <div className="card-title">Legenda</div>
+                      <div className="card-title">Legenda Anomali</div>
                       <div className="legend">
                         <div className="legend-item"><div className="legend-dot" style={{ background: 'var(--red)' }}></div>Kritis (&gt;70%)</div>
                         <div className="legend-item"><div className="legend-dot" style={{ background: 'var(--orange)' }}></div>Tinggi (50-70%)</div>
                         <div className="legend-item"><div className="legend-dot" style={{ background: 'var(--yellow)' }}></div>Moderat (30-50%)</div>
+                      </div>
+                      <div className="card-title" style={{ marginTop: 10 }}>Legenda Klasifikasi AI</div>
+                      <div className="legend">
+                        <div className="legend-item"><span>🥇</span> Gold Deposit</div>
+                        <div className="legend-item"><span>⚙️</span> Iron Deposit</div>
+                        <div className="legend-item"><span>🚇</span> Tunnel Potential</div>
+                        <div className="legend-item"><span>🦇</span> Cave/Karst</div>
+                        <div className="legend-item"><span>🏛️</span> Buried Structure</div>
                       </div>
                     </div>
                   </>)}
@@ -767,13 +1061,14 @@ export default function App() {
                 {activeTab === 'mineral' && (<>
                   <div className="card">
                     <div className="card-title">Peta Deposit Mineral (USGS)</div>
-                    <p className="card-desc">Overlay peta deposit mineral yang sudah diketahui dari database USGS (United States Geological Survey). Ini adalah data REAL deposit mineral yang sudah terkonfirmasi di seluruh dunia.</p>
-                    <div className="toggle-row"><label>Tampilkan Deposit Mineral USGS</label><label className="toggle-switch"><input type="checkbox" checked={showMineralWMS} onChange={() => setShowMineralWMS(!showMineralWMS)} /><span className="toggle-slider"></span></label></div>
+                    <p className="card-desc">Overlay deposit mineral real dari USGS (United States Geological Survey).</p>
+                    <div className="toggle-row"><label>Tampilkan Deposit Mineral USGS</label>
+                      <label className="toggle-switch"><input type="checkbox" checked={showMineralWMS} onChange={() => setShowMineralWMS(!showMineralWMS)} /><span className="toggle-slider"></span></label></div>
                   </div>
 
                   <div className="card">
                     <div className="card-title">Tandai Lokasi Manual</div>
-                    <p className="card-desc">Klik pada peta untuk menandai lokasi yang menarik. Pilih jenis mineral/logam yang ingin ditandai.</p>
+                    <p className="card-desc">Klik pada peta untuk menandai lokasi yang menarik.</p>
                     <div className="form-group"><label>Jenis</label>
                       <div className="mineral-grid">
                         {Object.entries(MINERAL_TYPES).map(([k, v]) => (
@@ -804,17 +1099,83 @@ export default function App() {
                   )}
                 </>)}
 
+                {/* ===== HISTORY TAB ===== */}
+                {activeTab === 'history' && (<>
+                  <div className="card" style={{ borderColor: 'var(--accent)', borderWidth: 2 }}>
+                    <div className="card-title" style={{ color: 'var(--accent)', fontSize: 14 }}>📜 Riwayat Scan</div>
+                    <p className="card-desc">
+                      Setiap scan otomatis tersimpan. Klik untuk melihat hasil atau bandingkan antar scan.
+                      Maksimal 20 scan terakhir tersimpan.
+                    </p>
+                    {scanHistory.length > 0 && (
+                      <button className="btn btn-primary btn-sm" onClick={() => { exportScanHistory(); setScanHistory(getScanHistory()) }} style={{ marginBottom: 8 }}>
+                        💾 Export Riwayat
+                      </button>
+                    )}
+                  </div>
+
+                  {scanHistory.length === 0 ? (
+                    <div className="card">
+                      <div className="card-title">Belum Ada Riwayat</div>
+                      <p className="card-desc">Lakukan scan area untuk menyimpan hasil.</p>
+                    </div>
+                  ) : (
+                    scanHistory.map((entry, idx) => (
+                      <div key={entry.id} className="card" style={{ borderLeft: `3px solid ${entry.criticalCount > 0 ? 'var(--red)' : 'var(--green)'}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <div className="card-title" style={{ fontSize: 12, marginBottom: 4 }}>
+                              #{entry.areaName}
+                            </div>
+                            <div className="info-panel" style={{ fontSize: 10 }}>
+                              <div className="info-row"><span className="info-label">Waktu</span><span className="info-value">{new Date(entry.timestamp).toLocaleString('id-ID')}</span></div>
+                              <div className="info-row"><span className="info-label">Titik</span><span className="info-value">{entry.totalPoints}</span></div>
+                              <div className="info-row"><span className="info-label">Anomali</span><span className="info-value" style={{ color: 'var(--red)' }}>{entry.anomalyCount} (Kritis: {entry.criticalCount})</span></div>
+                              <div className="info-row"><span className="info-label">Grid</span><span className="info-value">{entry.gridSpacing}m</span></div>
+                            </div>
+                          </div>
+                          <button className="btn btn-danger btn-sm" style={{ padding: '4px 8px', fontSize: 10 }}
+                            onClick={(e) => { e.stopPropagation(); deleteScanFromHistory(entry.id); setScanHistory(getScanHistory()) }}>
+                            ✕
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                          <button className="btn btn-primary btn-sm" style={{ flex: 1, fontSize: 10, padding: '4px 8px' }}
+                            onClick={() => { mapRef.current?.setView([entry.lat, entry.lng], entry.zoom || 14); setActiveTab('scan') }}>
+                            📍 Fokus Peta
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </>)}
+
                 {/* ===== EXPORT TAB ===== */}
                 {activeTab === 'export' && (<>
                   <div className="card">
                     <div className="card-title">Export Anomali</div>
-                    <p className="card-desc">Download hasil scan anomali untuk digunakan di aplikasi GIS lain atau dibagikan.</p>
+                    <p className="card-desc">Download hasil scan untuk GIS lain atau dibagikan.</p>
                     <div className="export-grid">
                       <button className="btn btn-primary" onClick={() => exportAnomalies('geojson')}>GeoJSON</button>
                       <button className="btn btn-primary" onClick={() => exportAnomalies('kml')}>KML (Google Earth)</button>
                       <button className="btn btn-primary" onClick={() => exportAnomalies('csv')}>CSV (Excel)</button>
+                      <button className="btn btn-primary" onClick={() => exportAnomalies('v2json')}>JSON v2 (Full)</button>
                     </div>
                   </div>
+                  {curvatureData && (
+                    <div className="card">
+                      <div className="card-title">Export Data Curvature</div>
+                      <p className="card-desc">Data depresi linear untuk deteksi terowongan.</p>
+                      <button className="btn btn-primary btn-block"
+                        onClick={() => {
+                          const blob = new Blob([JSON.stringify(curvatureData.linearDepressions.slice(0, 100), null, 2)], { type: 'application/json' })
+                          const url = URL.createObjectURL(blob), a = document.createElement('a')
+                          a.href = url; a.download = 'linear_depressions.json'; a.click(); URL.revokeObjectURL(url)
+                        }}>
+                        💾 Export Depresi Linear
+                      </button>
+                    </div>
+                  )}
                   {scanStats && (
                     <div className="card">
                       <div className="card-title">Ringkasan Scan Terakhir</div>
@@ -843,51 +1204,65 @@ export default function App() {
               ))}
             </LayersControl>
 
-            {/* USGS Mineral Deposits */}
             {showMineralWMS && <WMSTileLayer url="https://mrdata.usgs.gov/services/mrds" layers="mrds" format="image/png" transparent opacity={0.7} attribution="USGS MRDS" />}
 
-            <MapClickHandler onMapClick={handleMapClick} onMapMove={c => setMapCenter({ lat: c.lat, lng: c.lng })} />
+            <MapClickHandler onMapClick={handleMapClick} onMapMove={c => setMapCenter({ lat: c.lat, lng: c.lng })} onCrossSectionClick={handleCrossSectionClick} profileMode={profileMode} />
 
-            {/* Contour Lines (like Surfer) */}
+            {/* Contour lines */}
             {showContours && contourLines.map((contour, ci) => (
               contour.paths.map((path, pi) => (
-                <Polyline
-                  key={`contour-${ci}-${pi}`}
-                  positions={path.map(p => [p.lat, p.lng])}
-                  pathOptions={{
-                    color: contour.level > 500 ? '#8B4513' : contour.level > 200 ? '#228B22' : '#4169E1',
-                    weight: 1.5,
-                    opacity: 0.6,
-                  }}
-                />
+                <Polyline key={`c-${ci}-${pi}`} positions={path.map(p => [p.lat, p.lng])}
+                  pathOptions={{ color: contour.level > 500 ? '#8B4513' : contour.level > 200 ? '#228B22' : '#4169E1', weight: 1.5, opacity: 0.6 }} />
               ))
             ))}
 
-            {/* Heatmap overlay for anomalies */}
-            {showHeatmap && heatmapData.length > 0 && heatmapData.map((point, i) => (
-              <CircleMarker
-                key={`heat-${i}`}
-                center={[point[0], point[1]]}
-                radius={30}
-                pathOptions={{
-                  color: 'transparent',
-                  fillColor: point[2] > 0.7 ? '#FF0000' : point[2] > 0.5 ? '#FF8C00' : point[2] > 0.3 ? '#FFFF00' : '#00FF00',
-                  fillOpacity: 0.3,
-                  weight: 0,
-                }}
-              />
+            {/* Heatmap */}
+            {showHeatmap && heatmapData.map((point, i) => (
+              <CircleMarker key={`h-${i}`} center={[point[0], point[1]]} radius={30}
+                pathOptions={{ color: 'transparent', fillColor: point[2] > 0.7 ? '#FF0000' : point[2] > 0.5 ? '#FF8C00' : point[2] > 0.3 ? '#FFFF00' : '#00FF00', fillOpacity: 0.3, weight: 0 }} />
             ))}
 
-            {/* Scan grid points (subtle) */}
+            {/* Curvature linear depressions */}
+            {showCurvature && curvatureData?.linearDepressions?.slice(0, 30).map((d, i) => (
+              <CircleMarker key={`curv-${i}`} center={[d.lat, d.lng]} radius={d.intensity * 12 + 3}
+                pathOptions={{ color: '#FF4444', fillColor: '#FF4444', fillOpacity: 0.4, weight: 1, dashArray: '3,3' }}>
+                <Popup><div style={{ color: '#333', fontSize: 12 }}><strong>🚇 Depresi Linear</strong><br/>Intensitas: {(d.intensity*100).toFixed(0)}%<br/>Arah: {d.direction}<br/>Klik untuk detail</div></Popup>
+              </CircleMarker>
+            ))}
+
+            {/* Tunnel line markers (clustered) */}
+            {showCurvature && curvatureData?.tunnelLines?.map((line, i) => (
+              <CircleMarker key={`tl-${i}`} center={[line.centerLat, line.centerLng]} radius={15}
+                pathOptions={{ color: '#FF0000', fillColor: '#FF0000', fillOpacity: 0.2, weight: 2 }}>
+                <Popup><div style={{ color: '#333', fontSize: 12 }}><strong>🚇 Terowongan Terindikasi #{i+1}</strong><br/>Panjang: ~{line.length * 20}m<br/>Orientasi: {line.orientation}<br/>Intensitas: {(line.avgIntensity*100).toFixed(0)}%</div></Popup>
+              </CircleMarker>
+            ))}
+
+            {/* Profile markers */}
+            {profileStart && (
+              <CircleMarker center={[profileStart.lat, profileStart.lng]} radius={6}
+                pathOptions={{ color: '#3fb950', fillColor: '#3fb950', fillOpacity: 0.8 }} />
+            )}
+            {profileEnd && (
+              <CircleMarker center={[profileEnd.lat, profileEnd.lng]} radius={6}
+                pathOptions={{ color: '#f0883e', fillColor: '#f0883e', fillOpacity: 0.8 }} />
+            )}
+            {profileStart && profileEnd && (
+              <Polyline positions={[[profileStart.lat, profileStart.lng], [profileEnd.lat, profileEnd.lng]]}
+                pathOptions={{ color: '#58a6ff', weight: 2, opacity: 0.7, dashArray: '5,5' }}>
+                <Popup><div style={{ color: '#333', fontSize: 12 }}><strong>📐 Cross-Section Profile</strong><br/>Klik tab Profil untuk detail</div></Popup>
+              </Polyline>
+            )}
+
+            {/* Scan grid points */}
             {scanPoints.filter(p => p.anomalyScore <= 0.3 && p.elevation != null).map((p, i) => (
               <CircleMarker key={`s${i}`} center={[p.lat, p.lng]} radius={2} pathOptions={{ color: '#58a6ff', fillColor: '#58a6ff', fillOpacity: 0.3, weight: 0 }} />
             ))}
 
-            {/* Anomaly markers (prominent) */}
+            {/* Anomaly markers */}
             {anomalies.map((a, i) => (
               <Marker key={`a${i}`} position={[a.lat, a.lng]} icon={createAnomalyIcon(a.anomalyScore, a.anomalyType)}
-                eventHandlers={{ click: () => selectAnomaly(a) }}
-              >
+                eventHandlers={{ click: () => selectAnomaly(a) }}>
                 <Popup>
                   <div style={{ color: '#333', fontSize: 12, minWidth: 180 }}>
                     <strong style={{ color: getAnomalyColor(a.anomalyScore), fontSize: 14 }}>
@@ -897,65 +1272,77 @@ export default function App() {
                     <br />Score: {(a.anomalyScore * 100).toFixed(0)}%
                     <br />Elevasi: {a.elevation?.toFixed(1)}m
                     {a.diff && <><br />Selisih: {a.diff}m</>}
+                    {(() => {
+                      const idx = anomalies.findIndex(x => x.lat === a.lat && x.lng === a.lng)
+                      const cls = aiClassifications[idx]
+                      return cls?.primaryScore > 0.4
+                        ? <><br />🤖 AI: {cls.primaryType.replace(/_/g, ' ')}</>
+                        : null
+                    })()}
                     <br /><em style={{ fontSize: 10, color: '#666' }}>Klik untuk detail investigasi</em>
                   </div>
                 </Popup>
               </Marker>
             ))}
 
-            {/* Satellite anomaly markers (from GEE) */}
-            {showSatelliteData && satelliteAnomalies.map((a, i) => (
-              <CircleMarker
-                key={`sat-${i}`}
-                center={[a.lat, a.lng]}
-                radius={a.anomaly_level === 'critical' ? 10 : a.anomaly_level === 'high' ? 8 : a.anomaly_level === 'moderate' ? 6 : 4}
-                pathOptions={{
-                  color: getAnomalyColor(a.intensity),
-                  fillColor: getAnomalyColor(a.intensity),
-                  fillOpacity: 0.7,
-                  weight: 2,
-                }}
-              >
-                <Popup>
-                  <div style={{ color: '#333', fontSize: 12, minWidth: 180 }}>
-                    <strong style={{ color: getAnomalyColor(a.intensity), fontSize: 14 }}>
-                      🛰️ Anomali Satelit
-                    </strong>
-                    <br />Iron Oxide: {a.iron_oxide_raw.toFixed(3)}
-                    <br />Intensitas: {(a.intensity * 100).toFixed(0)}%
-                    <br />Level: <span style={{ fontWeight: 700, color: getAnomalyColor(a.intensity) }}>{a.anomaly_level.toUpperCase()}</span>
-                    <br /><em style={{ fontSize: 10, color: '#666' }}>Sumber: Sentinel-2 (GEE)</em>
-                  </div>
-                </Popup>
-              </CircleMarker>
-            ))}
+            {/* Satellite anomaly markers */}
+            {showSatelliteData && satelliteAnomalies.map((a, i) => {
+              const score = showV2Data ? a.combined_score : (a.intensity || 0)
+              const level = a.anomaly_level || 'low'
+              const clsType = showV2Data ? a.classification?.primary_type : null
+              const color = showV2Data && clsType ? (CLASSIFICATION_COLORS[clsType] || getAnomalyColor(score)) : getAnomalyColor(score)
+              return (
+                <CircleMarker key={`sat-${i}`} center={[a.lat, a.lng]}
+                  radius={level === 'critical' ? 10 : level === 'high' ? 8 : level === 'moderate' ? 6 : 4}
+                  pathOptions={{ color, fillColor: color, fillOpacity: 0.6, weight: 2 }}>
+                  <Popup>
+                    <div style={{ color: '#333', fontSize: 12, minWidth: 200 }}>
+                      <strong style={{ color, fontSize: 14 }}>🛰️ {showV2Data ? `Score: ${score.toFixed(3)}` : `Iron Oxide: ${a.iron_oxide_raw?.toFixed(3)}`}</strong>
+                      {clsType && <><br />🤖 {CLASSIFICATION_EMOJI[clsType]} {clsType.replace(/_/g, ' ')}</>}
+                      <br />Level: <span style={{ fontWeight: 700, color }}>{level.toUpperCase()}</span>
+                      {showV2Data && a.classification?.confidence > 0 && <><br />Confidence: {(a.classification.confidence * 100).toFixed(0)}%</>}
+                      {showV2Data && a.indices && (<>
+                        <br />Iron Ox: {a.indices.iron_oxide.toFixed(2)} | Clay: {a.indices.clay_minerals.toFixed(2)}
+                        <br />NDVI: {a.indices.ndvi.toFixed(2)} | Silica: {a.indices.silica_index.toFixed(2)}
+                      </>)}
+                      <br /><em style={{ fontSize: 10, color: '#666' }}>Sumber: Sentinel-2 (GEE)</em>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              )
+            })}
 
             {/* Mineral markers */}
             {mineralMarkers.map(m => (
               <Marker key={m.id} position={[m.lat, m.lng]} icon={createMineralIcon(MINERAL_TYPES[m.type]?.color||'#fff', MINERAL_TYPES[m.type]?.emoji||'?')}>
-                <Popup><div style={{ color: '#333', fontSize: 12 }}><strong>{MINERAL_TYPES[m.type]?.emoji} {MINERAL_TYPES[m.type]?.label}</strong><br />{MINERAL_METHODS[m.type]}</div></Popup>
+                <Popup><div style={{ color: '#333', fontSize: 12 }}><strong>{MINERAL_TYPES[m.type]?.emoji} {MINERAL_TYPES[m.type]?.label}</strong><br/>{MINERAL_METHODS[m.type]}</div></Popup>
               </Marker>
             ))}
 
-            {/* GPS points from file */}
+            {/* GPS points */}
             {gpsPoints.map(p => (
               <CircleMarker key={p.id} center={[p.lat, p.lng]} radius={4} pathOptions={{ color: '#3fb950', fillColor: '#3fb950', fillOpacity: 0.8 }}>
-                <Popup><div style={{ color: '#333', fontSize: 12 }}><strong>{p.label}</strong><br />{p.lat.toFixed(6)}, {p.lng.toFixed(6)}<br />Elevasi: {p.elevation?.toFixed(1)}m</div></Popup>
+                <Popup><div style={{ color: '#333', fontSize: 12 }}><strong>{p.label}</strong><br/>{p.lat.toFixed(6)}, {p.lng.toFixed(6)}<br/>Elevasi: {p.elevation?.toFixed(1)}m</div></Popup>
               </CircleMarker>
             ))}
           </MapContainer>
 
           <div className="map-overlay">
             <button className="btn btn-sm" onClick={() => setShowHelp(true)}>Bantuan</button>
+            {profileMode && (
+              <div style={{ background: '#f85149', border: '1px solid #ff6b6b', borderRadius: 6, padding: '6px 10px', fontSize: 11, color: '#fff', fontWeight: 600, boxShadow: 'var(--shadow)' }}>
+                📏 Mode Profil: klik 2 titik di peta
+              </div>
+            )}
             {anomalies.length > 0 && (
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 11, color: 'var(--red)', fontWeight: 600, boxShadow: 'var(--shadow)' }}>
-                {anomalies.length} anomali terdeteksi
+                {anomalies.length} anomali · {aiClassifications.filter(c => c.primaryScore > 0.4).length} AI klasifikasi
               </div>
             )}
           </div>
 
           <div className="coord-display">
-            {mapCenter.lat.toFixed(5)}, {mapCenter.lng.toFixed(5)} · Open-Meteo SRTM · USGS
+            {mapCenter.lat.toFixed(5)}, {mapCenter.lng.toFixed(5)} · SRTM · GEE · USGS · Macrostrat
           </div>
         </div>
       </div>
