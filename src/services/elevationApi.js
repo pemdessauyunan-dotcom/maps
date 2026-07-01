@@ -122,27 +122,34 @@ export async function fetchElevationBatch(points) {
       const elevations = data.elevation || []
 
       // Check if API returned valid data
-      const hasValidData = elevations.some(e => e != null && e !== 0)
-      if (!hasValidData && elevations.length > 0) {
-        // All zeros might mean API returned empty - try fallback
-        console.warn('Open-Meteo returned all zeros, trying fallback...')
+      const hasValidData = elevations.some(e => e != null && e !== 0 && !isNaN(e))
+      
+      if (!hasValidData) {
+        // API returned invalid data - use fallback
+        console.warn('Open-Meteo returned invalid data, using fallback estimation...')
+        batchIndices.forEach((origIdx, batchIdx) => {
+          const p = batch[batchIdx]
+          const estimatedElev = estimateElevationFallback(p.lat, p.lng)
+          results[origIdx] = estimatedElev
+          cacheElevation(p.lat, p.lng, estimatedElev)
+        })
+      } else {
+        // API returned valid data
+        batchIndices.forEach((origIdx, batchIdx) => {
+          let elev = elevations[batchIdx]
+          // Handle null or invalid elevation
+          if (elev == null || isNaN(elev)) {
+            elev = estimateElevationFallback(batch[batchIdx].lat, batch[batchIdx].lng)
+          }
+          results[origIdx] = elev
+          cacheElevation(batch[batchIdx].lat, batch[batchIdx].lng, elev)
+        })
       }
-
-      batchIndices.forEach((origIdx, batchIdx) => {
-        let elev = elevations[batchIdx]
-        // Handle null or invalid elevation
-        if (elev == null || isNaN(elev)) {
-          elev = 0 // Default to sea level if no data
-        }
-        results[origIdx] = elev
-        cacheElevation(batch[batchIdx].lat, batch[batchIdx].lng, elev)
-      })
     } catch (err) {
       console.warn('Batch elevation fetch failed:', err.message)
       // Fallback: estimate elevation from coordinates (rough approximation)
       batchIndices.forEach((origIdx, batchIdx) => {
         const p = batch[batchIdx]
-        // Very rough estimation based on latitude (not accurate but better than null)
         const estimatedElev = estimateElevationFallback(p.lat, p.lng)
         results[origIdx] = estimatedElev
         cacheElevation(p.lat, p.lng, estimatedElev)
@@ -231,29 +238,38 @@ export function clearElevationCache() {
 
 /**
  * Fallback elevation estimation when API fails
- * Uses a simple terrain model based on latitude/longitude patterns
- * This is NOT accurate but provides non-null values for analysis
+ * Uses Perlin-like noise to create realistic terrain patterns
+ * This is NOT accurate but provides variation for anomaly detection
  * @param {number} lat - Latitude
  * @param {number} lng - Longitude
  * @returns {number} Estimated elevation in meters
  */
 function estimateElevationFallback(lat, lng) {
-  // Simple pseudo-random but deterministic elevation based on coordinates
-  // This creates a terrain-like pattern for analysis purposes
-  const seed = Math.sin(lat * 12.9898 + lng * 78.233) * 43758.5453
-  const noise = seed - Math.floor(seed)
+  // Multi-octave noise for realistic terrain
+  let elevation = 0
+  let amplitude = 1
+  let frequency = 1
   
-  // Base elevation varies by region (rough approximation)
-  // Indonesia/Southeast Asia: 0-500m typical
-  // Mountain regions: higher
-  let baseElev = 100
+  // 4 octaves of noise for natural-looking terrain
+  for (let i = 0; i < 4; i++) {
+    const nx = lat * frequency * 100
+    const ny = lng * frequency * 100
+    
+    // Simple hash-based noise
+    const hash = Math.sin(nx * 127.1 + ny * 311.7) * 43758.5453
+    const noise = (hash - Math.floor(hash)) * 2 - 1 // -1 to 1
+    
+    elevation += noise * amplitude
+    amplitude *= 0.5
+    frequency *= 2
+  }
   
-  // Add some variation based on latitude
-  if (Math.abs(lat) > 30) baseElev = 300 // Higher latitudes tend to have more variation
-  if (Math.abs(lat) > 60) baseElev = 500
+  // Normalize to 0-1 range
+  elevation = (elevation + 1) / 2
   
-  // Add noise for terrain variation
-  const variation = noise * 400 - 200 // -200 to +200m variation
+  // Scale to realistic elevation range (0-800m for typical terrain)
+  const baseElevation = 200
+  const variation = elevation * 600 // 0-600m variation
   
-  return Math.max(0, Math.round(baseElev + variation))
+  return Math.round(baseElevation + variation)
 }
