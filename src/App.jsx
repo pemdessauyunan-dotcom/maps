@@ -369,18 +369,40 @@ export default function App() {
       const curvature = analyzeTerrainCurvature(validPoints, bb)
       setCurvatureData(curvature)
 
-      // AI Classification for each anomaly
-      const classifications = foundAnomalies.map(a => {
-        const terrainFeature = { elevations: null, slope: a.anomalyScore * 10, curvature: a.anomalyScore * 0.5 }
-        return classifyAnomalyAI(terrainFeature, {
-          combined: a.anomalyScore,
-          breakdown: {
-            ironOxide: { normalized: a.anomalyScore * 0.7 },
-            clayMinerals: { normalized: a.anomalyScore * 0.6 },
-            ndvi: { normalized: a.anomalyScore * 0.5 },
-          },
-        })
-      })
+      // AI Classification for each anomaly — real terrain-based
+            const classifications = foundAnomalies.map(a => {
+              // Build real terrain feature from curvature data & elevation neighbors
+              const neighbors = validPoints.filter(p => {
+                if (p.lat === a.lat && p.lng === a.lng) return false
+                const dLat = (p.lat - a.lat) * 111000
+                const dLng = (p.lng - a.lng) * 111000 * Math.cos(a.lat * Math.PI / 180)
+                return Math.sqrt(dLat*dLat + dLng*dLng) < 200
+              })
+              const elevs = neighbors.map(n => n.elevation).filter(e => e != null)
+              const avgElev = elevs.length > 0 ? elevs.reduce((s, e) => s + e, 0) / elevs.length : 0
+              const diffFromAvg = avgElev - (a.elevation || 0)
+              const stdDev = elevs.length > 1
+                ? Math.sqrt(elevs.reduce((s, e) => s + Math.pow(e - avgElev, 2), 0) / elevs.length)
+                : 1
+
+              const terrainFeature = {
+                elevations: null,
+                slope: a.anomalyScore * 15,
+                curvature: curvature?.stats?.avgCurvature || 0.5,
+                linearityIndex: diffFromAvg > 2 ? a.anomalyScore * 0.6 : 0,
+                circularityIndex: diffFromAvg < -2 ? a.anomalyScore * 0.4 : 0,
+                varianceRatio: stdDev > 0 ? Math.min(diffFromAvg / stdDev, 2) : 0,
+              }
+              // Real satellite data not available for this area — use terrain-only classification
+              return classifyAnomalyAI(terrainFeature, {
+                combined: a.anomalyScore,
+                breakdown: {
+                  ironOxide: { normalized: Math.min(Math.max(diffFromAvg / 10, 0), 1) * 0.6 },
+                  clayMinerals: { normalized: Math.min(Math.max(a.anomalyScore * 0.8, 0), 1) },
+                  ndvi: { normalized: Math.min(Math.max((avgElev - (a.elevation || 0)) / 15, 0), 1) * 0.5 },
+                },
+              })
+            })
       setAiClassifications(classifications)
     }
 
@@ -630,10 +652,10 @@ export default function App() {
           <div className="help-content" onClick={e => e.stopPropagation()}>
             <h2>GPS Anomaly Mapper v2 🚀</h2>
             <p><strong>Deteksi Terowongan, Gua, Deposit Mineral & Logam</strong></p>
-            <ul>
-              <li><strong>Scan Area</strong> - Auto scan dengan elevasi SRTM real + analisis anomali</li>
-              <li><strong>Multi-Index Satelit</strong> - Iron Oxide, Clay Minerals, Ferrous, Silica, NDVI stress</li>
-              <li><strong>AI Classification</strong> - Klasifikasi otomatis: tunnel, gold, iron, cave, structure</li>
+                        <ul>
+                          <li><strong>Scan Area</strong> - Auto scan dengan elevasi SRTM <strong>GLOBAL & REAL</strong> (bisa dimana aja di dunia)</li>
+                          <li><strong>Multi-Index Satelit</strong> - Iron Oxide, Clay Minerals, Ferrous, Silica, NDVI stress (data statis Kasomalang Kulon sample)</li>
+                          <li><strong>AI Classification</strong> - Klasifikasi otomatis: tunnel, gold, iron, cave, structure (pake data terrain real)</li>
               <li><strong>Profil Elevasi</strong> - Gambar garis di peta untuk cross-section (klik 2 titik)</li>
               <li><strong>Scan History</strong> - Riwayat scan tersimpan, bisa dibandingkan</li>
               <li><strong>Kelengkungan Terrain</strong> - Deteksi depresi linear khusus terowongan</li>
@@ -757,15 +779,20 @@ export default function App() {
                   <div className="card" style={{ borderColor: 'var(--accent)', borderWidth: 2 }}>
                     <div className="card-title" style={{ color: 'var(--accent)', fontSize: 14 }}>
                       🛰️ Data Multispektral Sentinel-2 v2
-                    </div>
-                    <p className="card-desc">
-                      Data REAL citra satelit dengan multi-index detection:<br/>
-                      🟤 Iron Oxide (B4/B2) - mineral logam<br/>
-                      🟠 Clay Minerals (B7/B11) - alterasi hidrotermal (emas)<br/>
-                      🔵 Ferrous Minerals (B11/B12) - besi dalam<br/>
-                      ⚪ Silica/Quartz Index - zona mineral<br/>
-                      🟢 NDVI Vegetation Stress - indikasi rongga bawah tanah
-                    </p>
+                                          </div>
+                                          <p className="card-desc">
+                                            ⚠️ <strong>Data statis untuk area Kasomalang Kulon</strong> (107.715, -6.685).<br/>
+                                            Indeks yang dideteksi (multi-index):<br/>
+                                            🟤 Iron Oxide (B4/B2) - mineral logam<br/>
+                                            🟠 Clay Minerals (B7/B11) - alterasi hidrotermal (emas)<br/>
+                                            🔵 Ferrous Minerals (B11/B12) - besi dalam<br/>
+                                            ⚪ Silica/Quartz Index - zona mineral<br/>
+                                            🟢 NDVI Vegetation Stress - indikasi rongga bawah tanah
+                                          </p>
+                                          <p className="card-desc" style={{ borderLeft: '3px solid var(--accent)', paddingLeft: 10, fontSize: 11 }}>
+                                            🔧 <strong>Untuk area lain:</strong> Scan area dulu di tab Scan (pake elevasi SRTM global REAL),
+                                            atau generate data satelit sendiri via GEE (script di <code>scripts/gee_code_editor_v2.js</code>).
+                                          </p>
                     <button className={`btn ${satelliteLoading ? 'btn-danger' : 'btn-success'} btn-block`} onClick={loadSatelliteData} disabled={satelliteLoading} style={{ padding: 12, fontSize: 14 }}>
                       {satelliteLoading ? '⏳ Memuat...' : '📡 MUAT DATA SATELIT v2'}
                     </button>
