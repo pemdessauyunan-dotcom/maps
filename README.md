@@ -1,16 +1,47 @@
-# React + Vite
+# 🌡️ Thermal Lithology Mapper
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+**Deteksi anomali bawah tanah via analisis termal & litologi real-time.**
 
-Currently, two official plugins are available:
+Menggabungkan data elevasi SRTM, litologi Macrostrat, dan komputasi termal untuk mendeteksi:
+- 🔥 **Deposit mineral** (emas, besi, tembaga) — anomali termal positif
+- 🕳️ **Rongga & terowongan** — anomali termal negatif
+- 💧 **Air tanah** — cold spot termal
+- 🪨 **Jenis batuan & formasi geologi** — klasifikasi litologi real-time
+- 📈 **Cross-section termal** — profil suhu permukaan sepanjang garis
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Fitur
 
-## React Compiler
+| Fitur | Deskripsi |
+|---|---|
+| 🌡️ **Thermal Map** | Peta sebaran suhu permukaan dengan deteksi anomali |
+| 📍 **GPS Live Tracking** | Tracking posisi real-time dengan auto-deteksi anomali |
+| 📈 **Thermal Cross-Section** | Profil elevasi + suhu sepanjang garis |
+| 🪨 **Lithology Analysis** | Klasifikasi batuan dari data geologi Macrostrat |
+| 🔴 **Real-Time API** | Data dikomputasi on-the-fly, bukan dari file statis |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🧪 Cara Kerja
 
-## Expanding the Oxlint configuration
+1. Buka peta → klik **🌡️ TAMPILKAN PETA TERMAL** untuk melihat sebaran suhu
+2. Klik titik mana pun di peta → analisis termal + litologi otomatis
+3. Aktifkan **📍 GPS** → jalan sambil deteksi anomali real-time
+4. Gunakan **📈 Cross-Section** → gambar garis untuk profil termal
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## 🔧 Tech Stack
+
+- **Frontend:** React + Vite + Leaflet
+- **Data Elevasi:** Open-Meteo SRTM (real-time, gratis)
+- **Data Geologi:** Macrostrat API (real-time)
+- **Komputasi Termal:** In-browser + Vercel API
+- **Deploy:** Vercel
+
+## 🚀 Deploy
+
+```bash
+npm install
+npm run dev     # development
+npm run build   # production build
+```
+
+## 📄 Lisensi
+
+MIT
