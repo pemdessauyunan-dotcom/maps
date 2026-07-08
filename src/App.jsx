@@ -5,7 +5,14 @@ import 'leaflet/dist/leaflet.css'
 import './index.css'
 import { fetchElevationBatch } from './services/elevationApi'
 import { fetchGeologicalInfo } from './services/geologicalApi'
-import { analyzeThermalLithology, getThermalColor, getAnomalyColor, THERMAL_BASE } from './services/thermalLithology'
+import { analyzeThermalLithology, getThermalColor, getAnomalyColor } from './services/thermalLithology'
+import {
+  computeSpectralIndices,
+  detectAlteration,
+  analyzeEpithermal,
+  getIndonesiaLithology,
+  SPECTRAL_INDICES,
+} from './services/indonesiaGeology'
 import {
   startGpsTracking,
   stopGpsTracking as stopGps,
@@ -41,6 +48,9 @@ export default function App() {
   // Thermal analysis state
   const [selectedPoint, setSelectedPoint] = useState(null)
   const [thermalResult, setThermalResult] = useState(null)
+  const [spectralResult, setSpectralResult] = useState(null)
+  const [alterationResult, setAlterationResult] = useState(null)
+  const [epithermalResult, setEpithermalResult] = useState(null)
   const [geoInfo, setGeoInfo] = useState(null)
   const [loading, setLoading] = useState(false)
 
@@ -68,7 +78,11 @@ export default function App() {
     setLoading(true)
     setSelectedPoint(latlng)
     setThermalResult(null)
+    setSpectralResult(null)
+    setAlterationResult(null)
+    setEpithermalResult(null)
     setGeoInfo(null)
+    setActiveTab('home')
 
     try {
       // Fetch elevation
@@ -77,12 +91,25 @@ export default function App() {
       const elevation = elevData.elevation?.[0] || 200
 
       // Fetch geology
-      const geoInfo = await fetchGeologicalInfo(latlng.lat, latlng.lng)
+      const geoInfo = await fetchGeologicalInfo(latlng.lat, latlng.lng, elevation)
 
       // Analyze thermal lithology
       const thermal = analyzeThermalLithology(latlng.lat, latlng.lng, { elevation }, geoInfo)
 
+      // Compute spectral indices
+      const lithology = getIndonesiaLithology(latlng.lat, latlng.lng, elevation)
+      const spectral = computeSpectralIndices(lithology, { elevation, slope: 0 })
+
+      // Detect alteration
+      const alteration = detectAlteration(spectral.indices, lithology)
+
+      // Analyze epithermal potential
+      const epithermal = analyzeEpithermal(lithology, spectral.indices, alteration)
+
       setThermalResult(thermal)
+      setSpectralResult(spectral)
+      setAlterationResult(alteration)
+      setEpithermalResult(epithermal)
       setGeoInfo(geoInfo)
     } catch (err) {
       console.error('Analysis failed:', err)
@@ -259,7 +286,9 @@ export default function App() {
             <div className="tab-bar">
               {[
                 ['home', '🏠 Beranda'],
+                ['spectrum', '🔬 Spektrum'],
                 ['thermal', '🌡️ Thermal'],
+                ['alteration', '🧱 Alterasi'],
                 ['gps', '📍 GPS'],
                 ['profile', '📈 Profil'],
               ].map(([k, l]) => (
@@ -297,6 +326,64 @@ export default function App() {
                 </div>
               )}
 
+              {/* SPECTRUM TAB */}
+              {activeTab === 'spectrum' && (
+                <div className="card">
+                  <div className="card-title">🔬 Analisis Spektrum</div>
+                  <p className="card-desc">
+                    Indeks spektral dari data satelit multispektral (Sentinel-2). Mendeteksi mineral, alterasi, dan vegetasi stress.
+                  </p>
+                  {spectralResult ? (
+                    <>
+                      <div className="legend" style={{ gap: 6 }}>
+                        {Object.entries(SPECTRAL_INDICES).map(([k, v]) => {
+                          const val = spectralResult.indices[k] || 0
+                          const pct = (val * 100).toFixed(0)
+                          const barColor = val > 0.6 ? '#d50000' : val > 0.4 ? '#ff6f00' : val > 0.2 ? '#ffb300' : '#58a6ff'
+                          return (
+                            <div key={k} className="card" style={{ padding: 10, margin: 0 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <span style={{ fontSize: 11, fontWeight: 600 }}>{v.emoji} {v.name}</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: barColor }}>{pct}%</span>
+                              </div>
+                              <div style={{ height: 6, background: 'var(--bg-darkest)', borderRadius: 3, overflow: 'hidden' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: barColor, borderRadius: 3, transition: 'width 0.5s' }}></div>
+                              </div>
+                              <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 4 }}>{v.description}</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {epithermalResult && (
+                        <div className="card" style={{ borderColor: epithermalResult.potential ? 'var(--green)' : 'var(--border)' }}>
+                          <div className="card-title">⛏️ Potensi Epitermal</div>
+                          {epithermalResult.potential ? (
+                            <>
+                              <div className="stats-grid">
+                                <div className="stat-card">
+                                  <div className="stat-value" style={{ color: 'var(--green)' }}>{(epithermalResult.score * 100).toFixed(0)}%</div>
+                                  <div className="stat-label">Probabilitas</div>
+                                </div>
+                              </div>
+                              {epithermalResult.depositTypes.map((d, i) => (
+                                <div key={i} className="point-item" style={{ fontSize: 10 }}>
+                                  <span>{d.type}</span>
+                                  <span className="coords">{(d.conf * 100).toFixed(0)}%</span>
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <p className="card-desc">Tidak terindikasi potensi epitermal signifikan di lokasi ini.</p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="card-desc">Klik titik di peta untuk melihat analisis spektrum.</p>
+                  )}
+                </div>
+              )}
+
               {/* THERMAL TAB */}
               {activeTab === 'thermal' && (
                 <div className="card">
@@ -315,6 +402,39 @@ export default function App() {
                     disabled={loading} style={{ marginTop: 8 }}>
                     {loading ? '⏳ Mengomputasi...' : showThermal ? '🗺️ Sembunyikan Peta Termal' : '🗺️ TAMPILKAN PETA TERMAL'}
                   </button>
+                </div>
+              )}
+
+              {/* ALTERATION TAB */}
+              {activeTab === 'alteration' && (
+                <div className="card">
+                  <div className="card-title">🧱 Alterasi Hidrotermal</div>
+                  <p className="card-desc">
+                    Zona alterasi hidrotermal terdeteksi dari indeks spektral. Setiap zona mengindikasikan tipe mineralisasi berbeda.
+                  </p>
+                  <div className="legend" style={{ gap: 4 }}>
+                    <div className="legend-item"><span style={{ background: '#ff6f00', width: 12, height: 12, borderRadius: 2 }}></span> Silisifikasi (inti urat)</div>
+                    <div className="legend-item"><span style={{ background: '#ffb300', width: 12, height: 12, borderRadius: 2 }}></span> Argilik (halo urat)</div>
+                    <div className="legend-item"><span style={{ background: '#4caf50', width: 12, height: 12, borderRadius: 2 }}></span> Propilitik (distal)</div>
+                    <div className="legend-item"><span style={{ background: '#9c27b0', width: 12, height: 12, borderRadius: 2 }}></span> Potasik (porfiri)</div>
+                    <div className="legend-item"><span style={{ background: '#e91e63', width: 12, height: 12, borderRadius: 2 }}></span> Silik (high-sulfidation)</div>
+                  </div>
+                  {alterationResult ? (
+                    <div className="card" style={{ borderColor: alterationResult.confidence > 0.5 ? 'var(--orange)' : 'var(--border)', marginTop: 8 }}>
+                      <div className="card-title" style={{ fontSize: 13, color: 'var(--orange)' }}>
+                        {alterationResult.emoji} {alterationResult.name}
+                      </div>
+                      <p className="card-desc">{alterationResult.description}</p>
+                      <div className="info-panel">
+                        <div className="info-row"><span className="info-label">Confidence</span><span className="info-value">{(alterationResult.confidence * 100).toFixed(0)}%</span></div>
+                        <div className="info-row"><span className="info-label">Temperatur</span><span className="info-value">{alterationResult.temperature}</span></div>
+                        <div className="info-row"><span className="info-label">Indikasi</span><span className="info-value">{alterationResult.indicator}</span></div>
+                        <div className="info-row"><span className="info-label">Mineral Terkait</span><span className="info-value">{alterationResult.minerals.join(', ')}</span></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="card-desc" style={{ marginTop: 8 }}>Klik titik di peta untuk deteksi alterasi.</p>
+                  )}
                 </div>
               )}
 
@@ -430,24 +550,47 @@ export default function App() {
           {selectedPoint && (
             <CircleMarker center={[selectedPoint.lat, selectedPoint.lng]} radius={10}
               pathOptions={{ color: '#fff', weight: 2, fillColor: '#58a6ff', fillOpacity: 0.6 }}>
-              <Popup>
-                <div style={{ color: '#333', fontSize: 11, minWidth: 200 }}>
-                  {loading ? '⏳ Menganalisis...' : thermalResult ? <>
-                    <strong>🌡️ Analisis Termal</strong><br/>
-                    {thermalResult.lithology.rockEmoji} {thermalResult.lithology.rockLabel}<br/>
-                    🌡️ {thermalResult.temperature.surface.toFixed(1)}°C ({(thermalResult.temperature.anomaly > 0 ? '+' : '')}{thermalResult.temperature.anomaly.toFixed(1)}°C anomaly)<br/>
-                    📏 {thermalResult.elevation}m<br/>
-                    {thermalResult.anomalies.length > 0 ? <>
-                      <strong>🔥 Terdeteksi:</strong><br/>
-                      {thermalResult.anomalies.map((a, i) => (
-                        <span key={i}>{a.emoji} {a.label} ({(a.confidence * 100).toFixed(0)}%)<br/></span>
-                      ))}
-                    </> : '✅ Tidak ada anomali signifikan'}
+              <Popup maxWidth={350}>
+                <div style={{ color: '#333', fontSize: 11, minWidth: 280 }}>
+                  {loading ? '⏳ Menganalisis...' : thermalResult && spectralResult ? <>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, borderBottom: '2px solid #58a6ff', paddingBottom: 4 }}>
+                      🌡️ Analisis Termal & Spektral
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                      <tbody>
+                        <tr><td style={{ padding: '2px 4px', color: '#666', width: 120 }}>📍 Posisi</td><td style={{ padding: '2px 4px', fontWeight: 600 }}>{selectedPoint.lat.toFixed(5)}, {selectedPoint.lng.toFixed(5)}</td></tr>
+                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>🪨 Litologi</td><td style={{ padding: '2px 4px', fontWeight: 600 }}>{thermalResult.lithology.rockEmoji} {geoInfo?.raw?.rockName || thermalResult.lithology.rockLabel}</td></tr>
+                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>📏 Elevasi</td><td style={{ padding: '2px 4px' }}>{thermalResult.elevation}m</td></tr>
+                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>🌡️ Suhu Permukaan</td><td style={{ padding: '2px 4px', fontWeight: 600, color: thermalResult.temperature.anomaly > 0 ? '#d50000' : '#1a237e' }}>{thermalResult.temperature.surface.toFixed(1)}°C ({(thermalResult.temperature.anomaly > 0 ? '+' : '')}{thermalResult.temperature.anomaly.toFixed(1)}°C)</td></tr>
+                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>🟤 Iron Oxide</td><td style={{ padding: '2px 4px' }}>{(spectralResult.indices.iron_oxide * 100).toFixed(0)}%</td></tr>
+                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>🟠 Clay Minerals</td><td style={{ padding: '2px 4px' }}>{(spectralResult.indices.clay_minerals * 100).toFixed(0)}%</td></tr>
+                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>⚪ Silica Index</td><td style={{ padding: '2px 4px' }}>{(spectralResult.indices.silica_index * 100).toFixed(0)}%</td></tr>
+                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>🔴 Alteration Index</td><td style={{ padding: '2px 4px' }}>{(spectralResult.indices.alteration_index * 100).toFixed(0)}%</td></tr>
+                      </tbody>
+                    </table>
+                    {alterationResult && (
+                      <div style={{ marginTop: 6, padding: '6px 8px', background: '#fff3e0', borderRadius: 4, borderLeft: '3px solid #ff6f00' }}>
+                        <strong>{alterationResult.emoji} {alterationResult.name}</strong><br/>
+                        <span style={{ fontSize: 10, color: '#666' }}>{alterationResult.description}</span>
+                      </div>
+                    )}
+                    {epithermalResult?.potential && (
+                      <div style={{ marginTop: 4, padding: '6px 8px', background: '#e8f5e9', borderRadius: 4, borderLeft: '3px solid #2e7d32' }}>
+                        <strong>⛏️ Potensi Epitermal: {(epithermalResult.score * 100).toFixed(0)}%</strong><br/>
+                        <span style={{ fontSize: 10, color: '#666' }}>
+                          {epithermalResult.depositTypes.map(d => `${d.type}`).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                    {thermalResult.anomalies.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        <strong>🔥 Anomali:</strong> {thermalResult.anomalies.map(a => `${a.emoji} ${a.label} (${(a.confidence * 100).toFixed(0)}%)`).join(', ')}
+                      </div>
+                    )}
                   </> : '⏳'}
                 </div>
               </Popup>
-            </CircleMarker>
-          )}
+            </CircleMarker>}
 
           {/* GPS path */}
           {gpsPath.length > 0 && (

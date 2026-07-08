@@ -200,6 +200,12 @@ body {
 .point-item:hover { border-color: var(--accent); }
 .coords { color: var(--text-muted); font-size: 10px; }
 
+/* Stats grid */
+.stats-grid { display: flex; gap: 8px; margin: 8px 0; }
+.stat-card { flex: 1; background: var(--bg-darkest); border: 1px solid var(--border); border-radius: 6px; padding: 8px; text-align: center; }
+.stat-value { font-size: 18px; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
+
 /* ===== LEGEND ===== */
 .legend { display: flex; flex-direction: column; gap: 4px; }
 .legend-item {
