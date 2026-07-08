@@ -696,3 +696,15 @@ body {
 }
 
 .loading-text { animation: shimmer 1.5s ease-in-out infinite; }
+
+/* === GPS tracking pulse === */
+@keyframes gps-pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.gps-active {
+  animation: gps-pulse 1.5s ease-in-out infinite;
+  border-color: var(--green) !important;
+  color: var(--green) !important;
+}

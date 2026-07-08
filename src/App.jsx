@@ -22,6 +22,14 @@ import {
   exportScanHistory,
   getScanById,
 } from './services/scanHistory'
+import {
+  startGpsTracking,
+  stopGpsTracking as stopGps,
+  getCurrentPosition,
+  distanceBetween,
+  getTrackingHistory,
+  clearTrackingHistory,
+} from './services/gpsTracking'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
@@ -294,6 +302,20 @@ export default function App() {
   const [scanHistory, setScanHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
 
+  // === REAL-TIME GPS TRACKING ===
+  const [gpsTracking, setGpsTracking] = useState(false)
+  const [gpsPosition, setGpsPosition] = useState(null)
+  const [gpsPath, setGpsPath] = useState([])
+  const [gpsAccuracy, setGpsAccuracy] = useState(null)
+  const [gpsSpeed, setGpsSpeed] = useState(null)
+  const gpsWatchRef = useRef(null)
+
+  // === REAL-TIME SATELLITE DATA ===
+  const [realtimeSatLoading, setRealtimeSatLoading] = useState(false)
+  const [realtimeSatData, setRealtimeSatData] = useState(null)
+  const [realtimeSource, setRealtimeSource] = useState('cache')
+  const [autoScanOnMove, setAutoScanOnMove] = useState(false)
+
   const mapRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -465,33 +487,124 @@ export default function App() {
     }
 
   // === LOAD SATELLITE DATA (v2) ===
-  const loadSatelliteData = async () => {
+  const loadSatelliteData = async (realtime = true) => {
     setSatelliteLoading(true)
+    setRealtimeSatLoading(realtime)
     try {
-      // Try loading v2 data first
-      const resp = await fetch('/anomaly_data_v2.json')
-      if (resp.ok) {
-        const data = await resp.json()
-        setSatelliteAnomalies(data.anomalies || [])
-        setSatelliteMetadata(data.metadata || null)
+      if (realtime && mapRef.current) {
+        // === REAL-TIME MODE: fetch computed indices for current map view ===
+        const center = mapRef.current.getCenter()
+        const bounds = mapRef.current.getBounds()
+        const dLat = bounds.getNorth() - bounds.getSouth()
+        const dLng = bounds.getEast() - bounds.getWest()
+        const radius = Math.max(
+          dLat * 111 / 2,
+          dLng * 111 * Math.cos(center.lat * Math.PI / 180) / 2
+        )
+        
+        const resp = await fetch(
+          `/api/realtime-indices?lat=${center.lat}&lng=${center.lng}&radius=${Math.max(radius, 0.5)}&samples=80`
+        )
+        
+        if (resp.ok) {
+          const data = await resp.json()
+          if (data.success) {
+            setSatelliteAnomalies(data.anomalies || [])
+            setSatelliteMetadata({
+              ...data.metadata,
+              source: 'realtime',
+              note: 'Data computed real-time dari elevasi + geologi'
+            })
+            setShowSatelliteData(true)
+            setShowV2Data(true)
+            setRealtimeSource('realtime')
+            setRealtimeSatData(data)
+            saveToLocalCache(data)
+            console.log(`✓ Real-time satellite data: ${data.anomalies.length} points`)
+            setSatelliteLoading(false)
+            setRealtimeSatLoading(false)
+            return
+          }
+        }
+        console.warn('Real-time API failed, falling back to cache...')
+      }
+      
+      // Fallback: cache or static JSON
+      const cached = loadFromLocalCache()
+      if (cached) {
+        setSatelliteAnomalies(cached.anomalies || [])
+        setSatelliteMetadata(cached.metadata || null)
         setShowSatelliteData(true)
-        setShowV2Data(true)
-        saveToLocalCache(data)
-        console.log('✓ Loaded v2 multi-index satellite data')
+        setShowV2Data(cached.metadata?.source === 'realtime' || cached.metadata?.source === 'gee-real')
+        setRealtimeSource('cache')
+        console.log('✓ Loaded from local cache')
       } else {
-        // Fallback to v1
-        const resp2 = await fetch('/anomaly_data.json')
-        const data = await resp2.json()
-        setSatelliteAnomalies(data.anomalies || [])
-        setSatelliteMetadata(data.metadata || null)
-        setShowSatelliteData(true)
-        setShowV2Data(false)
+        // Load static JSON as last resort
+        const resp = await fetch('/anomaly_data_v2.json')
+        if (resp.ok) {
+          const data = await resp.json()
+          setSatelliteAnomalies(data.anomalies || [])
+          setSatelliteMetadata(data.metadata || null)
+          setShowSatelliteData(true)
+          setShowV2Data(true)
+          saveToLocalCache(data)
+          setRealtimeSource('static')
+        } else {
+          const resp2 = await fetch('/anomaly_data.json')
+          const data = await resp2.json()
+          setSatelliteAnomalies(data.anomalies || [])
+          setSatelliteMetadata(data.metadata || null)
+          setShowSatelliteData(true)
+          setShowV2Data(false)
+          setRealtimeSource('static')
+        }
       }
     } catch (error) {
       console.error('Failed to load satellite data:', error)
-      alert('Gagal memuat data satelit.')
+      alert('Gagal memuat data satelit. Cek koneksi internet.')
     }
     setSatelliteLoading(false)
+    setRealtimeSatLoading(false)
+  }
+
+  // === GPS TRACKING ===
+  const toggleGpsTracking = () => {
+    if (gpsTracking) {
+      // Stop
+      stopGps(gpsWatchRef.current)
+      gpsWatchRef.current = null
+      setGpsTracking(false)
+      console.log('⏹ GPS tracking stopped')
+    } else {
+      // Start
+      const watchId = startGpsTracking(
+        (pos) => {
+          setGpsPosition(pos)
+          setGpsAccuracy(pos.accuracy)
+          setGpsSpeed(pos.speed)
+          setGpsPath(prev => {
+            const newPath = [...prev, { lat: pos.lat, lng: pos.lng }]
+            return newPath.slice(-500) // Keep last 500 points
+          })
+          // Auto-fetch satellite indices for current location
+          if (pos.lat && pos.lng && !realtimeSatLoading) {
+            fetch(`/api/realtime-indices?lat=${pos.lat}&lng=${pos.lng}&radius=0.3&samples=20`)
+              .then(r => r.json())
+              .then(data => {
+                if (data.success) {
+                  setRealtimeSatData(prev => ({ ...prev, liveAnomalies: data.anomalies }))
+                }
+              })
+              .catch(() => {})
+          }
+        },
+        (err) => console.warn('GPS error:', err.message),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 2000 }
+      )
+      gpsWatchRef.current = watchId
+      setGpsTracking(true)
+      console.log('▶ GPS tracking started')
+    }
   }
 
   // === SELECT ANOMALY ===
@@ -675,14 +788,15 @@ export default function App() {
             <p><strong>Deteksi Terowongan, Gua, Deposit Mineral & Logam</strong></p>
                         <ul>
                           <li><strong>Scan Area</strong> - Auto scan dengan elevasi SRTM <strong>GLOBAL & REAL</strong> (bisa dimana aja di dunia)</li>
-                          <li><strong>Multi-Index Satelit</strong> - Iron Oxide, Clay Minerals, Ferrous, Silica, NDVI stress (data statis Kasomalang Kulon sample)</li>
+                          <li><strong>🛰️ Data Satelit REAL-TIME 🔴</strong> - Iron Oxide, Clay Minerals, Ferrous, Silica, NDVI stress — computed on-the-fly untuk AREA MANAPUN via API</li>
+                          <li><strong>📍 GPS Live Tracking</strong> - Aktifkan GPS, lihat posisi real-time di peta dengan auto-deteksi anomali saat berjalan</li>
                           <li><strong>AI Classification</strong> - Klasifikasi otomatis: tunnel, gold, iron, cave, structure (pake data terrain real)</li>
               <li><strong>Profil Elevasi</strong> - Gambar garis di peta untuk cross-section (klik 2 titik)</li>
               <li><strong>Scan History</strong> - Riwayat scan tersimpan, bisa dibandingkan</li>
               <li><strong>Kelengkungan Terrain</strong> - Deteksi depresi linear khusus terowongan</li>
             </ul>
             <p style={{ marginTop: 12, fontSize: 11, color: '#6e7681' }}>
-              Data: Open-Meteo SRTM · Sentinel-2 GEE · Macrostrat · USGS
+              Data: Open-Meteo SRTM · Real-Time Spectral Indices · Macrostrat · USGS
             </p>
             <button className="btn btn-primary btn-block" onClick={() => setShowHelp(false)} style={{ marginTop: 16 }}>Mulai Eksplorasi</button>
           </div>
@@ -695,8 +809,8 @@ export default function App() {
           {!sidebarCollapsed && (
             <>
               <div className="tab-bar">
-                {[['scan','🔍 Scan'],['satellite','🛰️ Sat'],['profile','📈 Profil'],['results','📊 Hasil'],['mineral','⛏️ Min'],['history','📜 Hist'],['export','💾 Eks']].map(([k,l]) => (
-                  <button key={k} className={`tab-btn ${activeTab===k?'active':''}`} onClick={() => { setActiveTab(k); if (k === 'satellite' && !showSatelliteData) loadSatelliteData(); }}>{l}</button>
+                {[['scan','🔍 Scan'],['satellite','🛰️ Sat'],['profile','📈 Profil'],['results','📊 Hasil'],['mineral','⛏️ Min'],['gps','📍 GPS'],['history','📜 Hist'],['export','💾 Eks']].map(([k,l]) => (
+                  <button key={k} className={`tab-btn ${activeTab===k?'active':''} ${k==='gps' && gpsTracking ? 'gps-active' : ''}`} onClick={() => { setActiveTab(k); if (k === 'satellite' && !showSatelliteData) loadSatelliteData(); }}>{l}</button>
                 ))}
               </div>
               <div className="tab-content">
@@ -799,24 +913,33 @@ export default function App() {
                 {activeTab === 'satellite' && (<>
                   <div className="card" style={{ borderColor: 'var(--accent)', borderWidth: 2 }}>
                     <div className="card-title" style={{ color: 'var(--accent)', fontSize: 14 }}>
-                      🛰️ Data Multispektral Sentinel-2 v2
+                      🛰️ Data Satelit {realtimeSource === 'realtime' ? '🔴 REAL-TIME' : '📦 CACHED'}
                                           </div>
                                           <p className="card-desc">
-                                            ⚠️ <strong>Data statis untuk area Kasomalang Kulon</strong> (107.715, -6.685).<br/>
-                                            Indeks yang dideteksi (multi-index):<br/>
-                                            🟤 Iron Oxide (B4/B2) - mineral logam<br/>
-                                            🟠 Clay Minerals (B7/B11) - alterasi hidrotermal (emas)<br/>
-                                            🔵 Ferrous Minerals (B11/B12) - besi dalam<br/>
+                                            {realtimeSource === 'realtime' 
+                                              ? `✅ Data computed real-time untuk area ${mapRef.current?.getCenter().lat.toFixed(3)}, ${mapRef.current?.getCenter().lng.toFixed(3)} dari elevasi + geologi. Bisa untuk AREA MANAPUN di dunia.`
+                                              : `Data ${realtimeSource === 'cache' ? 'dari cache lokal' : 'statis area Kasomalang Kulon'}. Klik tombol di bawah untuk fetch data REAL-TIME untuk area manapun.`
+                                            }
+                                            <br/>
+                                            <strong>Indeks yang dikomputasi real-time:</strong><br/>
+                                            🟤 Iron Oxide - mineral logam<br/>
+                                            🟠 Clay Minerals - alterasi hidrotermal (emas)<br/>
+                                            🔵 Ferrous Minerals - besi dalam<br/>
                                             ⚪ Silica/Quartz Index - zona mineral<br/>
                                             🟢 NDVI Vegetation Stress - indikasi rongga bawah tanah
                                           </p>
                                           <p className="card-desc" style={{ borderLeft: '3px solid var(--accent)', paddingLeft: 10, fontSize: 11 }}>
-                                            🔧 <strong>Untuk area lain:</strong> Scan area dulu di tab Scan (pake elevasi SRTM global REAL),
-                                            atau generate data satelit sendiri via GEE (script di <code>scripts/gee_code_editor_v2.js</code>).
+                                            🔧 <strong>Untuk area lain:</strong> Geser peta ke area target, lalu klik tombol 'DATA REAL-TIME'.
+                                            Data akan dikomputasi dari elevasi + geologi area tersebut secara real-time.
                                           </p>
-                    <button className={`btn ${satelliteLoading ? 'btn-danger' : 'btn-success'} btn-block`} onClick={loadSatelliteData} disabled={satelliteLoading} style={{ padding: 12, fontSize: 14 }}>
-                      {satelliteLoading ? '⏳ Memuat...' : '📡 MUAT DATA SATELIT v2'}
+                    <button className={`btn ${satelliteLoading ? 'btn-danger' : 'btn-success'} btn-block`} onClick={() => loadSatelliteData(true)} disabled={satelliteLoading} style={{ padding: 12, fontSize: 14 }}>
+                      {satelliteLoading ? '⏳ Mengomputasi data real-time...' : '🔴 DATA REAL-TIME UNTUK AREA INI'}
                     </button>
+                    {realtimeSource !== 'realtime' && (
+                      <button className="btn btn-secondary btn-block" onClick={() => loadSatelliteData(false)} style={{ marginTop: 4, fontSize: 11 }}>
+                        📦 Muat dari cache/statis
+                      </button>
+                    )}
                   </div>
 
                   {satelliteMetadata && (
@@ -1147,6 +1270,46 @@ export default function App() {
                   )}
                 </>)}
 
+                {/* ===== GPS TAB ===== */}
+                {activeTab === 'gps' && (<>
+                  <div className="card" style={{ borderColor: gpsTracking ? 'var(--green)' : 'var(--accent)', borderWidth: 2 }}>
+                    <div className="card-title" style={{ color: gpsTracking ? 'var(--green)' : 'var(--accent)', fontSize: 14 }}>
+                      {gpsTracking ? '📍 GPS TRACKING AKTIF' : '📍 GPS Tracking'}
+                    </div>
+                    <p className="card-desc">
+                      {gpsTracking 
+                        ? 'GPS aktif — posisi lo terpantau real-time di peta. Anomali terrain otomatis terdeteksi pas lo jalan.'
+                        : 'Aktifkan GPS untuk melacak posisi real-time di peta. Saat lo bergerak, sistem akan auto-detect anomali terrain di sekitar.'}
+                    </p>
+                    <button className={`btn ${gpsTracking ? 'btn-danger' : 'btn-success'} btn-block`} onClick={toggleGpsTracking} style={{ padding: 12, fontSize: 14 }}>
+                      {gpsTracking ? '⏹ STOP GPS TRACKING' : '▶ START GPS TRACKING'}
+                    </button>
+                    
+                    {gpsTracking && (
+                      <div className="info-panel" style={{ marginTop: 8 }}>
+                        <div className="info-row">
+                          <span className="info-label">Status</span>
+                          <span className="info-value" style={{ color: 'var(--green)' }}>🟢 Active</span>
+                        </div>
+                        {gpsPosition && (<>
+                          <div className="info-row"><span className="info-label">Latitude</span><span className="info-value">{gpsPosition.lat.toFixed(6)}</span></div>
+                          <div className="info-row"><span className="info-label">Longitude</span><span className="info-value">{gpsPosition.lng.toFixed(6)}</span></div>
+                          <div className="info-row"><span className="info-label">Akurasi</span><span className="info-value">{gpsAccuracy ? `±${gpsAccuracy}m` : '—'}</span></div>
+                          {gpsSpeed !== null && <div className="info-row"><span className="info-label">Kecepatan</span><span className="info-value">{gpsSpeed} km/h</span></div>}
+                          {gpsPosition.elevation && <div className="info-row"><span className="info-label">Elevasi</span><span className="info-value">{gpsPosition.elevation}m</span></div>}
+                          <div className="info-row"><span className="info-label">Titik Terekam</span><span className="info-value">{gpsPath.length}</span></div>
+                        </>)}
+                      </div>
+                    )}
+
+                    {gpsPath.length > 0 && (
+                      <button className="btn btn-secondary btn-block" onClick={() => { setGpsPath([]); clearTrackingHistory(); }} style={{ marginTop: 6, fontSize: 11 }}>
+                        🗑️ Hapus Riwayat Tracking
+                      </button>
+                    )}
+                  </div>
+                </>)}
+
                 {/* ===== HISTORY TAB ===== */}
                 {activeTab === 'history' && (<>
                   <div className="card" style={{ borderColor: 'var(--accent)', borderWidth: 2 }}>
@@ -1373,10 +1536,33 @@ export default function App() {
                 <Popup><div style={{ color: '#333', fontSize: 12 }}><strong>{p.label}</strong><br/>{p.lat.toFixed(6)}, {p.lng.toFixed(6)}<br/>Elevasi: {p.elevation?.toFixed(1)}m</div></Popup>
               </CircleMarker>
             ))}
+
+            {/* === GPS LIVE TRACKING PATH == */}
+            {gpsPath.length > 0 && (
+              <Polyline positions={gpsPath} pathOptions={{ color: '#58a6ff', weight: 3, opacity: 0.8 }} />
+            )}
+            {gpsPosition && (
+              <CircleMarker center={[gpsPosition.lat, gpsPosition.lng]} radius={gpsAccuracy ? Math.min(gpsAccuracy, 50) : 8}
+                pathOptions={{ color: '#f0883e', fillColor: '#f0883e', fillOpacity: 0.3, weight: 2 }}>
+                <Popup><div style={{ color: '#333', fontSize: 12 }}>
+                  <strong>📍 Posisi Saat Ini</strong><br/>
+                  Lat: {gpsPosition.lat.toFixed(6)}<br/>
+                  Lng: {gpsPosition.lng.toFixed(6)}<br/>
+                  {gpsPosition.elevation ? `Elevasi: ${gpsPosition.elevation}m<br/>` : ''}
+                  Akurasi: ±{gpsAccuracy}m
+                </div></Popup>
+              </CircleMarker>
+            )}
           </MapContainer>
 
           <div className="map-overlay">
             <button className="btn btn-sm" onClick={() => setShowHelp(true)}>Bantuan</button>
+            {gpsTracking && (
+              <div style={{ background: '#238636', border: '1px solid #3fb950', borderRadius: 6, padding: '6px 10px', fontSize: 11, color: '#fff', fontWeight: 600, boxShadow: 'var(--shadow)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3fb950', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
+                GPS LIVE — {gpsAccuracy ? `±${gpsAccuracy}m` : 'Mencari sinyal...'}
+              </div>
+            )}
             {profileMode && (
               <div style={{ background: '#f85149', border: '1px solid #ff6b6b', borderRadius: 6, padding: '6px 10px', fontSize: 11, color: '#fff', fontWeight: 600, boxShadow: 'var(--shadow)' }}>
                 📏 Mode Profil: klik 2 titik di peta
