@@ -590,7 +590,8 @@ export default function App() {
                   </> : '⏳'}
                 </div>
               </Popup>
-            </CircleMarker>}
+            </CircleMarker>
+          )}
 
           {/* GPS path */}
           {gpsPath.length > 0 && (
