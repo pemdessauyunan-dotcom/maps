@@ -9,7 +9,6 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-const MACROSTRAT_API = 'https://macrostrat.org/api/geo'
 
 // Rock thermal properties
 const ROCK_THERMAL = {
@@ -146,23 +145,26 @@ async function fetchElevations(points) {
 }
 
 async function fetchGeology(lat, lng) {
+  // Try Macrostrat first
   try {
-    const res = await fetch(`${MACROSTRAT_API}?lat=${lat}&lng=${lng}&format=json`)
-    if (!res.ok) return { rockType: 'unknown', confidence: 0 }
+    const res = await fetch(`https://macrostrat.org/api/units?lat=${lat}&lng=${lng}`)
     const data = await res.json()
-    const geo = data.success?.data?.[0]
-    if (!geo) return { rockType: 'unknown', confidence: 0 }
-    const lith = geo.lith ? geo.lith.map(l => l.name.toLowerCase()).join(' ') : ''
-    let rockType = 'sedimentary'
-    if (lith.includes('granite') || lith.includes('basalt') || lith.includes('volcanic')) rockType = 'igneous'
-    else if (lith.includes('limestone')) rockType = 'limestone'
-    else if (lith.includes('sandstone')) rockType = 'sandstone'
-    else if (lith.includes('marble') || lith.includes('schist')) rockType = 'metamorphic'
-    else if (lith.includes('alluvial')) rockType = 'alluvial'
-    return { rockType, formation: geo.strat_name || 'Unknown', confidence: geo.confidence || 0.5 }
-  } catch {
-    return { rockType: 'unknown', confidence: 0 }
-  }
+    const geo = data?.success?.data?.[0]
+    if (geo) {
+      const lith = geo.lith ? geo.lith.map(l => l.name.toLowerCase()).join(' ') : ''
+      let rockType = 'sedimentary'
+      if (lith.includes('granite') || lith.includes('basalt') || lith.includes('volcanic')) rockType = 'igneous'
+      else if (lith.includes('limestone')) rockType = 'limestone'
+      else if (lith.includes('sandstone')) rockType = 'sandstone'
+      else if (lith.includes('marble') || lith.includes('schist')) rockType = 'metamorphic'
+      return { rockType, formation: geo.strat_name || 'Unknown', confidence: 0.5, source: 'Macrostrat' }
+    }
+  } catch {}
+  
+  // Fallback: Indonesia Geological Database
+  const { getIndonesiaLithology } = await import('../src/services/indonesiaGeology.js')
+  const indo = getIndonesiaLithology(lat, lng, 200)
+  return { rockType: indo.rockType, formation: indo.rockName || indo.region, confidence: 0.7, source: indo.source }
 }
 
 function computeLocalVariance(points, elevations, idx) {
