@@ -13,6 +13,9 @@ import {
   getIndonesiaLithology,
   SPECTRAL_INDICES,
 } from './services/indonesiaGeology'
+import { analyzeLineaments } from './services/lineamentAnalysis'
+import { analyzeVegetation } from './services/vegetationAnalysis'
+import { calculateProspectivity } from './services/prospectivityModel'
 import {
   startGpsTracking,
   stopGpsTracking as stopGps,
@@ -54,6 +57,11 @@ export default function App() {
   const [geoInfo, setGeoInfo] = useState(null)
   const [loading, setLoading] = useState(false)
 
+  // New analysis state
+  const [lineamentResult, setLineamentResult] = useState(null)
+  const [vegetationResult, setVegetationResult] = useState(null)
+  const [prospectivityResult, setProspectivityResult] = useState(null)
+
   // GPS tracking
   const [gpsTracking, setGpsTracking] = useState(false)
   const [gpsPosition, setGpsPosition] = useState(null)
@@ -82,6 +90,9 @@ export default function App() {
     setAlterationResult(null)
     setEpithermalResult(null)
     setGeoInfo(null)
+    setLineamentResult(null)
+    setVegetationResult(null)
+    setProspectivityResult(null)
     setActiveTab('home')
 
     try {
@@ -106,11 +117,24 @@ export default function App() {
       // Analyze epithermal potential
       const epithermal = analyzeEpithermal(lithology, spectral.indices, alteration)
 
+      // NEW: Lineament analysis
+      const terrainGrid = await fetchTerrainGrid(latlng.lat, latlng.lng)
+      const lineament = analyzeLineaments(terrainGrid, latlng)
+
+      // NEW: Vegetation stress analysis
+      const vegetation = analyzeVegetation(latlng.lat, latlng.lng, { elevation, slope: 0 }, geoInfo, thermal.anomalies)
+
+      // NEW: Prospectivity model
+      const prospectivity = calculateProspectivity(thermal, spectral, alteration, lineament, vegetation, geoInfo)
+
       setThermalResult(thermal)
       setSpectralResult(spectral)
       setAlterationResult(alteration)
       setEpithermalResult(epithermal)
       setGeoInfo(geoInfo)
+      setLineamentResult(lineament)
+      setVegetationResult(vegetation)
+      setProspectivityResult(prospectivity)
     } catch (err) {
       console.error('Analysis failed:', err)
     }
@@ -160,7 +184,6 @@ export default function App() {
         })
       }
     }
-    // Batched elevation fetch
     const lats = points.map(p => p.lat.toFixed(5)).join(',')
     const lngs = points.map(p => p.lng.toFixed(5)).join(',')
     let elevations = []
@@ -197,7 +220,6 @@ export default function App() {
       const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`)
       if (r.ok) {
         const elevs = (await r.json()).elevation || []
-        // Get geology at midpoint
         const midPoint = pts[Math.floor(pts.length / 2)]
         const geo = await fetchGeologicalInfo(midPoint.lat, midPoint.lng)
         const profile = pts.map((p, i) => {
@@ -218,7 +240,7 @@ export default function App() {
     const chartH = height - pad.top - pad.bottom
     const elevs = profileResult.map(p => p.elevation || 0)
     const minE = Math.min(...elevs), maxE = Math.max(...elevs), range = maxE - minE || 1
-    const totalDist = profileResult.length > 1 ? profileResult.length * 30 : 1 // ~30m per step
+    const totalDist = profileResult.length > 1 ? profileResult.length * 30 : 1
 
     const svgPoints = profileResult.map((p, i) => ({
       x: pad.left + (i / (profileResult.length - 1)) * chartW,
@@ -242,7 +264,6 @@ export default function App() {
               {Math.round(t * totalDist)}m
             </text>
           ))}
-          {/* Thermal gradient fill */}
           <defs>
             <linearGradient id="thermalGrad" x1="0" y1="0" x2="1" y2="0">
               {svgPoints.map((p, i) => (
@@ -271,6 +292,453 @@ export default function App() {
     )
   }
 
+  // Result panel renderers
+  const renderHomeTab = () => (
+    <div className="home-tab">
+      <div className="hero-section">
+        <h2>🌡️ Thermal Lithology Mapper</h2>
+        <p>Deteksi anomali bawah tanah melalui analisis multi-source real-time.</p>
+      </div>
+      {selectedPoint && thermalResult ? (
+        <div className="result-section">
+          <div className="result-header">
+            <span className="result-coords">{selectedPoint.lat.toFixed(5)}, {selectedPoint.lng.toFixed(5)}</span>
+            <span className="result-elev">{thermalResult.elevation}m</span>
+          </div>
+
+          {/* Thermal */}
+          <div className="card">
+            <div className="card-title">🌡️ Analisis Termal</div>
+            <div className="card-grid">
+              <div className="card-item">
+                <span className="label">Suhu Permukaan</span>
+                <span className={`value ${thermalResult.temperature.surface > 35 ? 'hot' : thermalResult.temperature.surface > 28 ? 'warm' : 'cool'}`}>
+                  {thermalResult.temperature.surface}°C
+                </span>
+              </div>
+              <div className="card-item">
+                <span className="label">Anomali</span>
+                <span className={`value ${thermalResult.anomalyLevel === 'critical' ? 'danger' : thermalResult.anomalyLevel === 'high' ? 'warning' : ''}`}>
+                  {thermalResult.riskScore > 0.3 ? `${(thermalResult.riskScore * 100).toFixed(0)}%` : 'Normal'}
+                </span>
+              </div>
+              <div className="card-item">
+                <span className="label">Batuan</span>
+                <span className="value">{thermalResult.lithology.rockEmoji} {thermalResult.lithology.rockLabel}</span>
+              </div>
+              <div className="card-item">
+                <span className="label">Inersia Termal</span>
+                <span className="value">{thermalResult.lithology.thermalInertia}</span>
+              </div>
+            </div>
+            {thermalResult.anomalies.length > 0 && (
+              <div className="detected-features">
+                <div className="guide-title">🔍 Anomali Terdeteksi</div>
+                {thermalResult.anomalies.slice(0, 4).map((a, i) => (
+                  <div key={i} className="feature-badge">
+                    {a.emoji} {a.label} <span className="conf">{(a.confidence * 100).toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Prospectivity */}
+          {prospectivityResult && (
+            <div className="card">
+              <div className="card-title">🎯 Prospektivitas Mineral</div>
+              <div className={`prospectivity-score ${prospectivityResult.riskLevel}`}>
+                <span className="big-score">{(prospectivityResult.score * 100).toFixed(0)}%</span>
+                <span className="score-label">Confidence {(prospectivityResult.confidence * 100).toFixed(0)}%</span>
+              </div>
+              {prospectivityResult.mineralPredictions.length > 0 && (
+                <div className="prediction-list">
+                  {prospectivityResult.mineralPredictions.slice(0, 3).map((p, i) => (
+                    <div key={i} className="prediction-item">
+                      <span>{p.emoji} {p.label}</span>
+                      <span className={`prob ${p.confidence}`}>{(p.probability * 100).toFixed(0)}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="action-guide">{prospectivityResult.recommendedAction}</div>
+            </div>
+          )}
+
+          {/* Geology */}
+          {geoInfo && (
+            <div className="card">
+              <div className="card-title">🪨 Geologi</div>
+              <div className="card-text">{geoInfo.lithology || geoInfo.rockType}</div>
+              <div className="card-text small">{geoInfo.formation}</div>
+              {epithermalResult && epithermalResult.potential && (
+                <div className="epithermal-badge">
+                  🏆 Potensi Epitermal: {(epithermalResult.score * 100).toFixed(0)}%
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="empty-state">
+          <div className="empty-icon">👆</div>
+          <p>Klik peta untuk memulai analisis</p>
+        </div>
+      )}
+    </div>
+  )
+
+  // === RENDER SPECTRUM TAB ===
+  const renderSpectrumTab = () => {
+    if (!spectralResult) return <div className="empty-state"><p>Klik peta untuk melihat data spektrum</p></div>
+    const { indices, anomalyLevel } = spectralResult
+
+    const spectralItems = [
+      { key: 'iron_oxide', label: 'Iron Oxide', emoji: '🟤', desc: 'Oksida besi — gossan/mineralisasi' },
+      { key: 'clay_minerals', label: 'Clay Minerals', emoji: '🟠', desc: 'Mineral lempung — alterasi hidrotermal' },
+      { key: 'ferrous_minerals', label: 'Ferrous Minerals', emoji: '🔵', desc: 'Mineral besi dalam (Fe²⁺)' },
+      { key: 'silica_index', label: 'Silica/Quartz', emoji: '⚪', desc: 'Silika tinggi — zona urat kuarsa' },
+      { key: 'ndvi', label: 'Vegetation Stress', emoji: '🟢', desc: 'NDVI rendah = stress vegetasi' },
+      { key: 'alteration_index', label: 'Alteration Index', emoji: '🔴', desc: 'Indeks alterasi gabungan' },
+    ]
+
+    return (
+      <div className="tab-content">
+        <h3>🔬 Analisis Spektrum</h3>
+        <div className={`anomaly-badge ${anomalyLevel}`}>
+          Anomali Spektral: {anomalyLevel === 'high' ? 'TINGGI' : anomalyLevel === 'moderate' ? 'SEDANG' : 'RENDAH'}
+        </div>
+        {spectralItems.map(({ key, label, emoji, desc }) => (
+          <div key={key} className="spectral-item">
+            <div className="spectral-header">
+              <span>{emoji} {label}</span>
+              <span className="spectral-value">{(indices[key] * 100).toFixed(0)}%</span>
+            </div>
+            <div className="spectral-bar">
+              <div className="spectral-fill" style={{ width: `${indices[key] * 100}%` }} />
+            </div>
+            <div className="spectral-desc">{desc}</div>
+          </div>
+        ))}
+        {alterationResult && (
+          <div className="card">
+            <div className="card-title">🧱 Alterasi: {alterationResult.name}</div>
+            <div className="card-text">{alterationResult.description}</div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // === RENDER THERMAL TAB ===
+  const renderThermalTab = () => {
+    if (!thermalResult) return <div className="empty-state"><p>Klik peta untuk melihat analisis termal</p></div>
+    const { temperature, lithology, anomalies, terrain, elevation } = thermalResult
+
+    return (
+      <div className="tab-content">
+        <h3>🌡️ Analisis Termal Detail</h3>
+        <div className="card-grid">
+          <div className="card-item">
+            <span className="label">Suhu Permukaan</span>
+            <span className="value big">{temperature.surface}°C</span>
+          </div>
+          <div className="card-item">
+            <span className="label">Suhu Ekspektasi</span>
+            <span className="value">{temperature.expected}°C</span>
+          </div>
+          <div className="card-item">
+            <span className="label">Anomali Termal</span>
+            <span className={`value ${temperature.anomaly > 2 ? 'hot' : temperature.anomaly < -2 ? 'cool' : ''}`}>
+              {temperature.anomaly > 0 ? '+' : ''}{temperature.anomaly}°C
+            </span>
+          </div>
+          <div className="card-item">
+            <span className="label">Elevasi</span>
+            <span className="value">{elevation}m</span>
+          </div>
+          <div className="card-item">
+            <span className="label">Batuan</span>
+            <span className="value">{lithology.rockEmoji} {lithology.rockLabel}</span>
+          </div>
+          <div className="card-item">
+            <span className="label">Formasi</span>
+            <span className="value">{lithology.formation}</span>
+          </div>
+        </div>
+
+        {terrain && (
+          <div className="card">
+            <div className="card-title">🗺️ Terrain</div>
+            <div className="card-grid">
+              <div className="card-item"><span className="label">Slope</span><span className="value">{terrain.slope}°</span></div>
+              <div className="card-item"><span className="label">Aspect</span><span className="value">{terrain.aspect}°</span></div>
+              <div className="card-item"><span className="label">Curvature</span><span className="value">{terrain.curvature}</span></div>
+            </div>
+          </div>
+        )}
+
+        {anomalies.length > 0 && (
+          <div className="card">
+            <div className="card-title">🔍 Deteksi Anomali</div>
+            {anomalies.map((a, i) => (
+              <div key={i} className="anomaly-item">
+                <span>{a.emoji} {a.label}</span>
+                <span className="conf">{(a.confidence * 100).toFixed(0)}%</span>
+                <span className="anomaly-temp">{a.tempAnomaly > 0 ? '+' : ''}{a.tempAnomaly}°C</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button className="btn-secondary" onClick={loadThermalOverlay}>
+          🌡️ Tampilkan Peta Termal
+        </button>
+      </div>
+    )
+  }
+
+  // === RENDER ALTERATION TAB ===
+  const renderAlterationTab = () => {
+    if (!alterationResult) return <div className="empty-state"><p>Klik peta untuk melihat alterasi</p></div>
+    return (
+      <div className="tab-content">
+        <h3>🧱 Zona Alterasi</h3>
+        <div className="card">
+          <div className="alteration-header">
+            <span className="alteration-icon">{alterationResult.emoji}</span>
+            <span className="alteration-name">{alterationResult.name}</span>
+          </div>
+          <div className="card-text">{alterationResult.description}</div>
+          <div className="card-grid">
+            <div className="card-item">
+              <span className="label">Suhu Formasi</span>
+              <span className="value">{alterationResult.temperature}</span>
+            </div>
+            <div className="card-item">
+              <span className="label">Intensitas</span>
+              <span className="value">{(alterationResult.intensity * 100).toFixed(0)}%</span>
+            </div>
+            <div className="card-item">
+              <span className="label">Confidence</span>
+              <span className="value">{(alterationResult.confidence * 100).toFixed(0)}%</span>
+            </div>
+          </div>
+          {alterationResult.minerals && (
+            <div className="card-text">
+              Indikasi mineral: {alterationResult.minerals.map(m => {
+                const icons = { gold: '🥇', silver: '🥈', copper: '🔶' }
+                return `${icons[m] || '🪨'} ${m}`
+              }).join(', ')}
+            </div>
+          )}
+        </div>
+        {epithermalResult && (
+          <div className="card">
+            <div className="card-title">🏆 Sistem Epitermal</div>
+            <div className={`epithermal-score ${epithermalResult.potential ? 'high' : 'low'}`}>
+              {(epithermalResult.score * 100).toFixed(0)}% Potensi
+            </div>
+            {epithermalResult.depositTypes.map((d, i) => (
+              <div key={i} className="deposit-item">
+                <span>{d.type}</span>
+                <span className="conf">{(d.conf * 100).toFixed(0)}%</span>
+              </div>
+            ))}
+            <div className={`exploration-badge ${epithermalResult.recommendedExploration === 'HIGH PRIORITY' ? 'high' : 'moderate'}`}>
+              {epithermalResult.recommendedExploration}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // === RENDER LINEAMENT TAB ===
+  const renderLineamentTab = () => {
+    if (!lineamentResult) return <div className="empty-state"><p>Klik peta untuk analisis lineament</p></div>
+    return (
+      <div className="tab-content">
+        <h3>🧵 Analisis Lineament</h3>
+        <div className={`anomaly-badge ${lineamentResult.confidence > 0.5 ? 'high' : 'moderate'}`}>
+          Confidence: {(lineamentResult.confidence * 100).toFixed(0)}%
+        </div>
+        <div className="card">
+          <div className="card-grid">
+            <div className="card-item">
+              <span className="label">Kerapatan</span>
+              <span className="value">{(lineamentResult.density * 100).toFixed(1)}%</span>
+            </div>
+            <div className="card-item">
+              <span className="label">Lineament</span>
+              <span className="value">{lineamentResult.totalLineaments}</span>
+            </div>
+            <div className="card-item">
+              <span className="label">Arah Dominan</span>
+              <span className="value">{lineamentResult.dominantDirection || '—'}</span>
+            </div>
+          </div>
+          <div className="card-text small">{lineamentResult.summary}</div>
+        </div>
+        {lineamentResult.lineaments.length > 0 && (
+          <div className="card">
+            <div className="card-title">Lineament Terdeteksi</div>
+            {lineamentResult.lineaments.slice(0, 8).map((l, i) => (
+              <div key={i} className="lineament-item">
+                <span>{l.type.emoji} {l.type.label}</span>
+                <span className="lineament-dir">{l.direction != null ? `${Math.round(l.direction)}°` : '—'}</span>
+                <span className="conf">{(l.score * 100).toFixed(0)}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // === RENDER VEGETATION TAB ===
+  const renderVegetationTab = () => {
+    if (!vegetationResult) return <div className="empty-state"><p>Klik peta untuk analisis vegetasi</p></div>
+    const { indices, anomaly, stressPattern, stressFactors } = vegetationResult
+    return (
+      <div className="tab-content">
+        <h3>🌿 Analisis Geobotani</h3>
+        <div className={`anomaly-badge ${anomaly.level}`}>
+          {anomaly.level === 'critical' ? '⚠️ ANOMALI KRITIS' : anomaly.level === 'high' ? '⚠️ Stress Tinggi' : anomaly.level === 'moderate' ? 'Stress Sedang' : '✓ Normal'}
+        </div>
+        <div className="card">
+          <div className="card-title">Indeks Vegetasi</div>
+          <div className="card-grid">
+            <div className="card-item">
+              <span className="label">NDVI</span>
+              <span className={`value ${indices.ndvi < 0.3 ? 'danger' : indices.ndvi < 0.45 ? 'warning' : ''}`}>{indices.ndvi.toFixed(3)}</span>
+            </div>
+            <div className="card-item">
+              <span className="label">NDRE</span>
+              <span className="value">{indices.ndre.toFixed(3)}</span>
+            </div>
+            <div className="card-item">
+              <span className="label">Red Edge</span>
+              <span className="value">{indices.redEdge.toFixed(3)}</span>
+            </div>
+            <div className="card-item">
+              <span className="label">Moisture</span>
+              <span className="value">{indices.moisture.toFixed(3)}</span>
+            </div>
+            <div className="card-item">
+              <span className="label">Kesehatan</span>
+              <span className={`value ${indices.health < 0.4 ? 'danger' : indices.health < 0.6 ? 'warning' : ''}`}>
+                {(indices.health * 100).toFixed(0)}%
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-title">Pola Stress: {stressPattern.emoji} {stressPattern.label}</div>
+          <div className="card-text">{stressPattern.desc}</div>
+        </div>
+        {stressFactors.length > 0 && (
+          <div className="card">
+            <div className="card-title">Faktor Stress</div>
+            {stressFactors.map((s, i) => (
+              <div key={i} className="stress-item">
+                <span>{s.mineral}</span>
+                <span>{s.indicator}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="card-text small">{vegetationResult.summary}</div>
+      </div>
+    )
+  }
+
+  // === RENDER PROSPECTIVITY TAB ===
+  const renderProspectivityTab = () => {
+    if (!prospectivityResult) return <div className="empty-state"><p>Klik peta untuk melihat prospektivitas</p></div>
+    const { score, confidence, riskLevel, features, mineralPredictions, recommendedAction } = prospectivityResult
+    return (
+      <div className="tab-content">
+        <h3>🎯 Prospektivitas Mineral</h3>
+        <div className={`prospectivity-gauge ${riskLevel}`}>
+          <div className="gauge-value">{(score * 100).toFixed(0)}%</div>
+          <div className="gauge-label">Prospektivitas</div>
+          <div className="gauge-bar">
+            <div className="gauge-fill" style={{ width: `${score * 100}%` }} />
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-title">Feature Contribution</div>
+          {Object.entries(features).map(([key, f]) => (
+            <div key={key} className="feature-row">
+              <span className="feature-name">{key}</span>
+              <div className="feature-bar-area">
+                <div className="feature-bar">
+                  <div className="feature-fill" style={{ width: `${f.score * 100}%` }} />
+                </div>
+              </div>
+              <span className="feature-contribution">{(f.contribution * 100).toFixed(0)}%</span>
+            </div>
+          ))}
+        </div>
+        {mineralPredictions.length > 0 && (
+          <div className="card">
+            <div className="card-title">Prediksi Mineral</div>
+            {mineralPredictions.slice(0, 5).map((p, i) => (
+              <div key={i} className="prediction-item">
+                <span>{p.emoji} {p.label}</span>
+                <span className={`prob ${p.confidence}`}>{(p.probability * 100).toFixed(0)}%</span>
+                {p.thermalMatch && <span className="tag">🔥Termal</span>}
+                {p.geoSupport && <span className="tag">🪨Geologi</span>}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className={`action-guide ${riskLevel}`}>{recommendedAction}</div>
+      </div>
+    )
+  }
+
+  // === RENDER GPS TAB ===
+  const renderGpsTab = () => (
+    <div className="tab-content">
+      <h3>📍 GPS Tracking</h3>
+      <button className={`btn-${gpsTracking ? 'danger' : 'primary'}`} onClick={toggleGpsTracking}>
+        {gpsTracking ? '⏹ Stop Tracking' : '▶ Mulai Tracking'}
+      </button>
+      {gpsPosition && (
+        <div className="card">
+          <div className="card-grid">
+            <div className="card-item"><span className="label">Lat</span><span className="value">{gpsPosition.lat.toFixed(6)}</span></div>
+            <div className="card-item"><span className="label">Lng</span><span className="value">{gpsPosition.lng.toFixed(6)}</span></div>
+            <div className="card-item"><span className="label">Akurasi</span><span className="value">{gpsAccuracy ? `${gpsAccuracy.toFixed(0)}m` : '—'}</span></div>
+            <div className="card-item"><span className="label">Jejak</span><span className="value">{gpsPath.length} titik</span></div>
+          </div>
+        </div>
+      )}
+      {gpsThermal.length > 0 && (
+        <div className="card">
+          <div className="card-title">🔥 Anomali Sepanjang Rute</div>
+          {gpsThermal.filter(t => t.anomalyLevel !== 'normal').slice(-5).reverse().map((t, i) => (
+            <div key={i} className="gps-anomaly">
+              <span className="gps-coords">{t.lat.toFixed(5)},{t.lng.toFixed(5)}</span>
+              <span className="gps-temp">{t.temperature.surface}°C</span>
+              <span className="gps-anomaly-label">{t.anomalies[0]?.emoji || '⚠️'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="card-text small">Pastikan GPS aktif di perangkat Anda</div>
+    </div>
+  )
+
+  // === RENDER PROFILE TAB ===
+  const renderProfileTab = () => {
+    if (profileMode) return <div className="empty-state"><p>Klik titik awal & akhir di peta</p></div>
+    if (!profileResult) return <div className="empty-state"><p>Pilih menu Profil & klik dua titik di peta</p></div>
+    return renderProfileChart()
+  }
+
   return (
     <div className="app-container">
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
@@ -289,6 +757,9 @@ export default function App() {
                 ['spectrum', '🔬 Spektrum'],
                 ['thermal', '🌡️ Thermal'],
                 ['alteration', '🧱 Alterasi'],
+                ['lineament', '🧵 Lineament'],
+                ['vegetation', '🌿 Vegetasi'],
+                ['prospectivity', '🎯 Prospek'],
                 ['gps', '📍 GPS'],
                 ['profile', '📈 Profil'],
               ].map(([k, l]) => (
@@ -299,218 +770,29 @@ export default function App() {
                 </button>
               ))}
             </div>
-
-            <div className="tab-content">
-              {/* HOME TAB */}
-              {activeTab === 'home' && (
-                <div className="card" style={{ borderColor: 'var(--accent)' }}>
-                  <div className="card-title" style={{ fontSize: 15 }}>🌡️ Thermal Lithology Mapper</div>
-                  <p className="card-desc">
-                    Deteksi anomali bawah tanah melalui analisis termal & litologi real-time.
-                  </p>
-                  <div className="quick-actions">
-                    <button className="btn btn-success btn-block" onClick={() => { setActiveTab('thermal'); loadThermalOverlay() }}>
-                      🌡️ Lihat Thermal Map
-                    </button>
-                    <button className="btn btn-primary btn-block" onClick={() => { setActiveTab('gps'); toggleGpsTracking() }}>
-                      📍 Mulai GPS Tracking
-                    </button>
-                    <button className="btn btn-secondary btn-block" onClick={() => { setActiveTab('profile'); setProfileMode(true) }}>
-                      📈 Buat Cross-Section
-                    </button>
-                  </div>
-                  <div className="info-panel" style={{ marginTop: 8, fontSize: 11 }}>
-                    <div className="info-row"><span className="info-label">Cara:</span><span className="info-value">Klik peta → analisis otomatis</span></div>
-                    <div className="info-row"><span className="info-label">Data:</span><span className="info-value">SRTM + Macrostrat + Open-Meteo</span></div>
-                  </div>
-                </div>
-              )}
-
-              {/* SPECTRUM TAB */}
-              {activeTab === 'spectrum' && (
-                <div className="card">
-                  <div className="card-title">🔬 Analisis Spektrum</div>
-                  <p className="card-desc">
-                    Indeks spektral dari data satelit multispektral (Sentinel-2). Mendeteksi mineral, alterasi, dan vegetasi stress.
-                  </p>
-                  {spectralResult ? (
-                    <>
-                      <div className="legend" style={{ gap: 6 }}>
-                        {Object.entries(SPECTRAL_INDICES).map(([k, v]) => {
-                          const val = spectralResult.indices[k] || 0
-                          const pct = (val * 100).toFixed(0)
-                          const barColor = val > 0.6 ? '#d50000' : val > 0.4 ? '#ff6f00' : val > 0.2 ? '#ffb300' : '#58a6ff'
-                          return (
-                            <div key={k} className="card" style={{ padding: 10, margin: 0 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{ fontSize: 11, fontWeight: 600 }}>{v.emoji} {v.name}</span>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: barColor }}>{pct}%</span>
-                              </div>
-                              <div style={{ height: 6, background: 'var(--bg-darkest)', borderRadius: 3, overflow: 'hidden' }}>
-                                <div style={{ width: `${pct}%`, height: '100%', background: barColor, borderRadius: 3, transition: 'width 0.5s' }}></div>
-                              </div>
-                              <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 4 }}>{v.description}</div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {epithermalResult && (
-                        <div className="card" style={{ borderColor: epithermalResult.potential ? 'var(--green)' : 'var(--border)' }}>
-                          <div className="card-title">⛏️ Potensi Epitermal</div>
-                          {epithermalResult.potential ? (
-                            <>
-                              <div className="stats-grid">
-                                <div className="stat-card">
-                                  <div className="stat-value" style={{ color: 'var(--green)' }}>{(epithermalResult.score * 100).toFixed(0)}%</div>
-                                  <div className="stat-label">Probabilitas</div>
-                                </div>
-                              </div>
-                              {epithermalResult.depositTypes.map((d, i) => (
-                                <div key={i} className="point-item" style={{ fontSize: 10 }}>
-                                  <span>{d.type}</span>
-                                  <span className="coords">{(d.conf * 100).toFixed(0)}%</span>
-                                </div>
-                              ))}
-                            </>
-                          ) : (
-                            <p className="card-desc">Tidak terindikasi potensi epitermal signifikan di lokasi ini.</p>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="card-desc">Klik titik di peta untuk melihat analisis spektrum.</p>
-                  )}
-                </div>
-              )}
-
-              {/* THERMAL TAB */}
-              {activeTab === 'thermal' && (
-                <div className="card">
-                  <div className="card-title">🌡️ Thermal Lithology</div>
-                  <p className="card-desc">
-                    Peta termal menunjukkan distribusi suhu permukaan yang mengindikasikan jenis batuan, mineral, dan rongga bawah tanah.
-                  </p>
-                  <div className="legend">
-                    <div className="legend-item"><span style={{ background: '#d50000', width: 12, height: 12, borderRadius: 2 }}></span> Panas (Mineral Logam)</div>
-                    <div className="legend-item"><span style={{ background: '#ff6f00', width: 12, height: 12, borderRadius: 2 }}></span> Hangat (Batuan Beku)</div>
-                    <div className="legend-item"><span style={{ background: '#00bcd4', width: 12, height: 12, borderRadius: 2 }}></span> Normal (Sedimen)</div>
-                    <div className="legend-item"><span style={{ background: '#1a237e', width: 12, height: 12, borderRadius: 2 }}></span> Dingin (Rongga/Air)</div>
-                  </div>
-                  <button className={`btn ${showThermal ? 'btn-danger' : 'btn-success'} btn-block`}
-                    onClick={() => { if (!showThermal) loadThermalOverlay(); else setShowThermal(false) }}
-                    disabled={loading} style={{ marginTop: 8 }}>
-                    {loading ? '⏳ Mengomputasi...' : showThermal ? '🗺️ Sembunyikan Peta Termal' : '🗺️ TAMPILKAN PETA TERMAL'}
-                  </button>
-                </div>
-              )}
-
-              {/* ALTERATION TAB */}
-              {activeTab === 'alteration' && (
-                <div className="card">
-                  <div className="card-title">🧱 Alterasi Hidrotermal</div>
-                  <p className="card-desc">
-                    Zona alterasi hidrotermal terdeteksi dari indeks spektral. Setiap zona mengindikasikan tipe mineralisasi berbeda.
-                  </p>
-                  <div className="legend" style={{ gap: 4 }}>
-                    <div className="legend-item"><span style={{ background: '#ff6f00', width: 12, height: 12, borderRadius: 2 }}></span> Silisifikasi (inti urat)</div>
-                    <div className="legend-item"><span style={{ background: '#ffb300', width: 12, height: 12, borderRadius: 2 }}></span> Argilik (halo urat)</div>
-                    <div className="legend-item"><span style={{ background: '#4caf50', width: 12, height: 12, borderRadius: 2 }}></span> Propilitik (distal)</div>
-                    <div className="legend-item"><span style={{ background: '#9c27b0', width: 12, height: 12, borderRadius: 2 }}></span> Potasik (porfiri)</div>
-                    <div className="legend-item"><span style={{ background: '#e91e63', width: 12, height: 12, borderRadius: 2 }}></span> Silik (high-sulfidation)</div>
-                  </div>
-                  {alterationResult ? (
-                    <div className="card" style={{ borderColor: alterationResult.confidence > 0.5 ? 'var(--orange)' : 'var(--border)', marginTop: 8 }}>
-                      <div className="card-title" style={{ fontSize: 13, color: 'var(--orange)' }}>
-                        {alterationResult.emoji} {alterationResult.name}
-                      </div>
-                      <p className="card-desc">{alterationResult.description}</p>
-                      <div className="info-panel">
-                        <div className="info-row"><span className="info-label">Confidence</span><span className="info-value">{(alterationResult.confidence * 100).toFixed(0)}%</span></div>
-                        <div className="info-row"><span className="info-label">Temperatur</span><span className="info-value">{alterationResult.temperature}</span></div>
-                        <div className="info-row"><span className="info-label">Indikasi</span><span className="info-value">{alterationResult.indicator}</span></div>
-                        <div className="info-row"><span className="info-label">Mineral Terkait</span><span className="info-value">{alterationResult.minerals.join(', ')}</span></div>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="card-desc" style={{ marginTop: 8 }}>Klik titik di peta untuk deteksi alterasi.</p>
-                  )}
-                </div>
-              )}
-
-              {/* GPS TAB */}
-              {activeTab === 'gps' && (
-                <div className="card" style={{ borderColor: gpsTracking ? 'var(--green)' : 'var(--accent)' }}>
-                  <div className="card-title" style={{ color: gpsTracking ? 'var(--green)' : '' }}>
-                    {gpsTracking ? '📍 GPS AKTIF' : '📍 GPS Tracking'}
-                  </div>
-                  <p className="card-desc">
-                    Aktifkan GPS untuk melacak posisi real-time. Anomali termal terdeteksi otomatis saat lo berjalan.
-                  </p>
-                  <button className={`btn ${gpsTracking ? 'btn-danger' : 'btn-success'} btn-block`}
-                    onClick={toggleGpsTracking} style={{ padding: 14, fontSize: 15 }}>
-                    {gpsTracking ? '⏹ STOP' : '▶ MULAI GPS'}
-                  </button>
-                  {gpsTracking && gpsPosition && (
-                    <div className="info-panel" style={{ marginTop: 8 }}>
-                      <div className="info-row"><span className="info-label">Lat</span><span className="info-value">{gpsPosition.lat.toFixed(6)}</span></div>
-                      <div className="info-row"><span className="info-label">Lng</span><span className="info-value">{gpsPosition.lng.toFixed(6)}</span></div>
-                      <div className="info-row"><span className="info-label">Akurasi</span><span className="info-value">±{gpsAccuracy}m</span></div>
-                      {gpsPosition.elevation && <div className="info-row"><span className="info-label">Elevasi</span><span className="info-value">{gpsPosition.elevation}m</span></div>}
-                      <div className="info-row"><span className="info-label">Titik</span><span className="info-value">{gpsPath.length}</span></div>
-                    </div>
-                  )}
-                  {gpsThermal.length > 0 && (
-                    <div className="card" style={{ marginTop: 8 }}>
-                      <div className="card-title" style={{ fontSize: 12, color: 'var(--orange)' }}>
-                        🔥 Anomali Terdeteksi
-                      </div>
-                      {gpsThermal.filter(t => t.anomalyLevel !== 'normal').slice(-5).reverse().map((t, i) => (
-                        <div key={i} className="point-item" style={{ fontSize: 11 }}>
-                          <span style={{ color: getAnomalyColor(t.anomalyLevel) }}>
-                            {t.anomalies?.[0]?.emoji || '⚠️'} {t.anomalies?.[0]?.label || t.anomalyLevel}
-                          </span>
-                          <span className="coords">{t.temperature.surface.toFixed(1)}°C</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* PROFILE TAB */}
-              {activeTab === 'profile' && (
-                <>
-                  <div className="card">
-                    <div className="card-title">📈 Thermal Cross-Section</div>
-                    <p className="card-desc">
-                      Klik 2 titik di peta untuk membuat profil elevasi + termal.
-                    </p>
-                    <button className={`btn ${profileMode ? 'btn-danger' : 'btn-primary'} btn-block`}
-                      onClick={() => setProfileMode(!profileMode)}>
-                      {profileMode ? '⏹ Batal' : '📏 Gambar Profil'}
-                    </button>
-                    {profileMode && (
-                      <div className="info-panel" style={{ marginTop: 6 }}>
-                        <div className="info-row">
-                          <span className="info-label">Mode</span>
-                          <span className="info-value" style={{ color: '#f85149' }}>Klik titik pertama</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {profileResult && renderProfileChart()}
-                </>
-              )}
+            <div className="sidebar-content">
+              {loading && <div className="loading">⏳ Menganalisis...</div>}
+              {activeTab === 'home' && renderHomeTab()}
+              {activeTab === 'spectrum' && renderSpectrumTab()}
+              {activeTab === 'thermal' && renderThermalTab()}
+              {activeTab === 'alteration' && renderAlterationTab()}
+              {activeTab === 'lineament' && renderLineamentTab()}
+              {activeTab === 'vegetation' && renderVegetationTab()}
+              {activeTab === 'prospectivity' && renderProspectivityTab()}
+              {activeTab === 'gps' && renderGpsTab()}
+              {activeTab === 'profile' && renderProfileTab()}
             </div>
           </>
         )}
       </div>
 
-      {/* MAP */}
       <div className="map-container">
-        <MapContainer center={[mapCenter.lat, mapCenter.lng]} zoom={14} ref={mapRef}
-          style={{ height: '100%', width: '100%' }}>
+        <MapContainer
+          center={mapCenter}
+          zoom={14}
+          style={{ height: '100%', width: '100%' }}
+          ref={mapRef}
+        >
           <LayersControl position="topright">
             {Object.entries(TILE_LAYERS).map(([k, v]) => (
               <LayersControl.BaseLayer key={k} checked={k === 'satellite'} name={v.name}>
@@ -518,124 +800,81 @@ export default function App() {
               </LayersControl.BaseLayer>
             ))}
           </LayersControl>
-          <MapClickHandler onClick={handleMapClick} onMove={setMapCenter} />
+
+          <MapClickHandler
+            onClick={handleMapClick}
+            onMove={(c) => setMapCenter(c)}
+          />
+
+          {selectedPoint && (
+            <Marker position={selectedPoint}>
+              <Popup>
+                📍 {selectedPoint.lat.toFixed(5)}, {selectedPoint.lng.toFixed(5)}
+                <br />{thermalResult?.temperature?.surface || '?'}°C
+              </Popup>
+            </Marker>
+          )}
+
+          {gpsPosition && (
+            <CircleMarker center={[gpsPosition.lat, gpsPosition.lng]} radius={10} color="#3fb950" fillColor="#3fb950" fillOpacity={0.5} />
+          )}
+
+          {gpsPath.length > 1 && (
+            <Polyline positions={gpsPath.map(p => [p.lat, p.lng])} color="#3fb950" weight={2} opacity={0.6} />
+          )}
 
           {/* Thermal grid overlay */}
-          {showThermal && thermalGrid.map((t, i) => {
-            const temps = thermalGrid.map(x => x.temperature.surface)
-            const minT = Math.min(...temps), maxT = Math.max(...temps)
-            return (
-              <CircleMarker key={i} center={[t.lat, t.lng]}
-                radius={8} opacity={0.6}
-                pathOptions={{
-                  color: getThermalColor(t.temperature.surface, minT, maxT),
-                  fillColor: getThermalColor(t.temperature.surface, minT, maxT),
-                  fillOpacity: 0.4,
-                  weight: 1,
-                }}>
-                <Popup>
-                  <div style={{ color: '#333', fontSize: 11, minWidth: 180 }}>
-                    <strong>{t.lithology.rockEmoji} {t.lithology.rockLabel}</strong><br/>
-                    Suhu: {t.temperature.surface.toFixed(1)}°C (anomali: {(t.temperature.anomaly > 0 ? '+' : '')}{t.temperature.anomaly.toFixed(1)}°C)<br/>
-                    Elevasi: {t.elevation}m<br/>
-                    Formasi: {t.lithology.formation}<br/>
-                    {t.anomalies.length > 0 && <><strong>Terindikasi:</strong> {t.anomalies.map(a => `${a.emoji} ${a.label} (${(a.confidence * 100).toFixed(0)}%)`).join(', ')}</>}
-                  </div>
-                </Popup>
-              </CircleMarker>
-            )}
-          )}
-
-          {/* Selected point */}
-          {selectedPoint && (
-            <CircleMarker center={[selectedPoint.lat, selectedPoint.lng]} radius={10}
-              pathOptions={{ color: '#fff', weight: 2, fillColor: '#58a6ff', fillOpacity: 0.6 }}>
-              <Popup maxWidth={350}>
-                <div style={{ color: '#333', fontSize: 11, minWidth: 280 }}>
-                  {loading ? '⏳ Menganalisis...' : thermalResult && spectralResult ? <>
-                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, borderBottom: '2px solid #58a6ff', paddingBottom: 4 }}>
-                      🌡️ Analisis Termal & Spektral
-                    </div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                      <tbody>
-                        <tr><td style={{ padding: '2px 4px', color: '#666', width: 120 }}>📍 Posisi</td><td style={{ padding: '2px 4px', fontWeight: 600 }}>{selectedPoint.lat.toFixed(5)}, {selectedPoint.lng.toFixed(5)}</td></tr>
-                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>🪨 Litologi</td><td style={{ padding: '2px 4px', fontWeight: 600 }}>{thermalResult.lithology.rockEmoji} {geoInfo?.raw?.rockName || thermalResult.lithology.rockLabel}</td></tr>
-                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>📏 Elevasi</td><td style={{ padding: '2px 4px' }}>{thermalResult.elevation}m</td></tr>
-                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>🌡️ Suhu Permukaan</td><td style={{ padding: '2px 4px', fontWeight: 600, color: thermalResult.temperature.anomaly > 0 ? '#d50000' : '#1a237e' }}>{thermalResult.temperature.surface.toFixed(1)}°C ({(thermalResult.temperature.anomaly > 0 ? '+' : '')}{thermalResult.temperature.anomaly.toFixed(1)}°C)</td></tr>
-                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>🟤 Iron Oxide</td><td style={{ padding: '2px 4px' }}>{(spectralResult.indices.iron_oxide * 100).toFixed(0)}%</td></tr>
-                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>🟠 Clay Minerals</td><td style={{ padding: '2px 4px' }}>{(spectralResult.indices.clay_minerals * 100).toFixed(0)}%</td></tr>
-                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>⚪ Silica Index</td><td style={{ padding: '2px 4px' }}>{(spectralResult.indices.silica_index * 100).toFixed(0)}%</td></tr>
-                        <tr><td style={{ padding: '2px 4px', color: '#666' }}>🔴 Alteration Index</td><td style={{ padding: '2px 4px' }}>{(spectralResult.indices.alteration_index * 100).toFixed(0)}%</td></tr>
-                      </tbody>
-                    </table>
-                    {alterationResult && (
-                      <div style={{ marginTop: 6, padding: '6px 8px', background: '#fff3e0', borderRadius: 4, borderLeft: '3px solid #ff6f00' }}>
-                        <strong>{alterationResult.emoji} {alterationResult.name}</strong><br/>
-                        <span style={{ fontSize: 10, color: '#666' }}>{alterationResult.description}</span>
-                      </div>
-                    )}
-                    {epithermalResult?.potential && (
-                      <div style={{ marginTop: 4, padding: '6px 8px', background: '#e8f5e9', borderRadius: 4, borderLeft: '3px solid #2e7d32' }}>
-                        <strong>⛏️ Potensi Epitermal: {(epithermalResult.score * 100).toFixed(0)}%</strong><br/>
-                        <span style={{ fontSize: 10, color: '#666' }}>
-                          {epithermalResult.depositTypes.map(d => `${d.type}`).join(', ')}
-                        </span>
-                      </div>
-                    )}
-                    {thermalResult.anomalies.length > 0 && (
-                      <div style={{ marginTop: 6 }}>
-                        <strong>🔥 Anomali:</strong> {thermalResult.anomalies.map(a => `${a.emoji} ${a.label} (${(a.confidence * 100).toFixed(0)}%)`).join(', ')}
-                      </div>
-                    )}
-                  </> : '⏳'}
-                </div>
-              </Popup>
+          {showThermal && thermalGrid.map((p, i) => (
+            <CircleMarker key={i}
+              center={[p.lat, p.lng]}
+              radius={6}
+              color={getThermalColor(p.temperature?.surface || 30, 20, 50)}
+              fillColor={getThermalColor(p.temperature?.surface || 30, 20, 50)}
+              fillOpacity={0.5}
+            >
+              <Popup>{p.lat.toFixed(4)},{p.lng.toFixed(4)}<br/>{p.temperature?.surface}°C<br/>{p.lithology?.rockLabel}</Popup>
             </CircleMarker>
-          )}
+          ))}
 
-          {/* GPS path */}
-          {gpsPath.length > 0 && (
-            <Polyline positions={gpsPath} pathOptions={{ color: '#58a6ff', weight: 3, opacity: 0.6 }} />
-          )}
-          {gpsPosition && (
-            <CircleMarker center={[gpsPosition.lat, gpsPosition.lng]}
-              radius={gpsAccuracy ? Math.min(gpsAccuracy, 30) : 8}
-              pathOptions={{ color: '#f0883e', fillColor: '#f0883e', fillOpacity: 0.3, weight: 2 }}>
-              <Popup>
-                <div style={{ color: '#333', fontSize: 11 }}>
-                  <strong>📍 Posisi</strong><br/>
-                  {gpsPosition.lat.toFixed(6)}, {gpsPosition.lng.toFixed(6)}<br/>
-                  Elevasi: {gpsPosition.elevation || '—'}m<br/>
-                  Akurasi: ±{gpsAccuracy}m
-                </div>
-              </Popup>
-            </CircleMarker>
-          )}
-
-          {/* Cross-section markers */}
-          {profileMode && (
-            <CircleMarker center={[mapCenter.lat, mapCenter.lng]} radius={15}
-              pathOptions={{ color: '#f85149', weight: 2, fillColor: '#f8514911', fillOpacity: 0.3, dashArray: '5,5' }}>
-              <Popup><div style={{ color: '#333' }}>Klik titik PERTAMA untuk profil</div></Popup>
-            </CircleMarker>
-          )}
+          {/* Profile mode */}
+          {profileMode && <ProfileClickHandler onStartEnd={handleCrossSectionClick} />}
         </MapContainer>
-
-        {/* Overlay indicators */}
-        <div className="map-overlay">
-          {gpsTracking && (
-            <div className="gps-badge">
-              <span className="gps-dot"></span>
-              GPS {gpsAccuracy ? `±${gpsAccuracy}m` : 'Mencari...'}
-            </div>
-          )}
-          {showThermal && (
-            <div className="thermal-badge">🌡️ Thermal Layer Aktif</div>
-          )}
-          {loading && <div className="loading-badge">⏳ Memproses...</div>}
-          {profileMode && <div className="profile-badge">📏 Klik 2 titik untuk cross-section</div>}
-        </div>
       </div>
     </div>
   )
+}
+
+// === PROFILE CLICK HANDLER ===
+function ProfileClickHandler({ onStartEnd }) {
+  const points = useRef([])
+  useMapEvents({
+    click: (e) => {
+      points.current.push(e.latlng)
+      if (points.current.length === 2) {
+        onStartEnd(points.current[0], points.current[1])
+        points.current = []
+      }
+    },
+  })
+  return null
+}
+
+// === FETCH TERRAIN GRID FOR LINEAMENT ANALYSIS ===
+async function fetchTerrainGrid(lat, lng, radius = 0.5, gridSize = 7) {
+  const points = []
+  const latStep = (radius * 2) / (gridSize - 1) / 111
+  const lngStep = latStep / Math.cos(lat * Math.PI / 180)
+  const startLat = lat - radius / 111
+  const startLng = lng - (radius / 111) / Math.cos(lat * Math.PI / 180)
+
+  for (let i = 0; i < gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      points.push({
+        lat: startLat + i * latStep,
+        lng: startLng + j * lngStep,
+      })
+    }
+  }
+  const elevations = await fetchElevationBatch(points)
+  return points.map((p, i) => ({ ...p, elevation: elevations[i] ?? 0 }))
 }
