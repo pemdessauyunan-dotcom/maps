@@ -31,8 +31,19 @@ body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg-d
 .geosat-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
 
 /* ===== SIDEBAR ===== */
-.sidebar { width: 320px; min-width: 320px; background: var(--bg-surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; transition: all 0.3s; z-index: 1000; position: relative; }
-.sidebar.collapsed { width: 0; min-width: 0; }
+.sidebar {
+  width: 300px;
+  min-width: 300px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 0.25s ease;
+  z-index: 1000;
+  position: relative;
+}
+.sidebar.collapsed { width: 0; min-width: 0; border-right: none; }
 .sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); text-align: center; }
 .sidebar-logo { font-size: 14px; font-weight: 700; letter-spacing: 1px; color: var(--text-primary); }
 .sidebar-logo span { color: var(--accent); }
