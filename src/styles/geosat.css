@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+/* ===== GEOSAT PRO ENTERPRISE — Theme ===== */
+:root {
+  --bg-deep: #0a0e17;
+  --bg-surface: #111827;
+  --bg-elevated: #1a2332;
+  --bg-hover: #243044;
+  --border: #1e3a5f;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #3b82f6;
+  --accent-glow: rgba(59, 130, 246, 0.15);
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg-deep); color: var(--text-primary); overflow: hidden; height: 100vh; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ===== LAYOUT ===== */
+.geosat-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+
+/* ===== SIDEBAR ===== */
+.sidebar { width: 320px; min-width: 320px; background: var(--bg-surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; transition: all 0.3s; z-index: 1000; position: relative; }
+.sidebar.collapsed { width: 0; min-width: 0; }
+.sidebar-header { padding: 16px; border-bottom: 1px solid var(--border); text-align: center; }
+.sidebar-logo { font-size: 14px; font-weight: 700; letter-spacing: 1px; color: var(--text-primary); }
+.sidebar-logo span { color: var(--accent); }
+.sidebar-subtitle { font-size: 10px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
+.nav-group { padding: 8px 8px 0; }
+.nav-title { font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; padding: 4px 8px; margin-bottom: 4px; }
+.nav-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; background: transparent; border: 1px solid transparent; border-radius: 5px; color: var(--text-secondary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; text-align: left; }
+.nav-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border); }
+.nav-btn.active { background: var(--bg-elevated); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent-glow); }
+.nav-icon { font-size: 14px; width: 20px; text-align: center; }
+
+/* ===== MAP ===== */
+.map-container { flex: 1; position: relative; }
+.leaflet-container { background: var(--bg-deep) !important; }
+
+/* ===== TOOLBAR ===== */
+.toolbar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; gap: 4px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+.tool-btn { padding: 6px 12px; background: transparent; border: none; border-radius: 5px; color: var(--text-secondary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 4px; }
+.tool-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.tool-btn.active { background: var(--accent); color: white; }
+
+/* ===== STATUS BAR ===== */
+.status-bar { position: absolute; bottom: 0; left: 0; right: 0; z-index: 1000; display: flex; justify-content: space-between; align-items: center; padding: 4px 12px; background: var(--bg-surface); border-top: 1px solid var(--border); font-size: 10px; color: var(--text-muted); }
+.status-left, .status-right { display: flex; align-items: center; gap: 12px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.status-dot.online { background: var(--success); }
+.status-dot.offline { background: var(--text-muted); }
+.status-dot.processing { background: var(--warning); animation: pulse 1.5s infinite; }
+
+/* ===== PANELS ===== */
+.panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.panel-header { font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+.panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.panel-item { display: flex; flex-direction: column; gap: 1px; }
+.panel-label { font-size: 9px; color: var(--text-muted); }
+.panel-value { font-size: 13px; font-weight: 600; }
+.panel-value.highlight { color: var(--accent); }
+.panel-value.danger { color: var(--danger); }
+.panel-value.success { color: var(--success); }
+.panel-value.warning { color: var(--warning); }
+
+/* ===== NOTIFICATION ===== */
+.notification { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; max-width: 360px; }
+.notification-item { padding: 10px 14px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: slideIn 0.3s ease; }
+.notification-item.success { border-color: var(--success); }
+.notification-item.error { border-color: var(--danger); }
+.notification-item.warning { border-color: var(--warning); }
+
+/* ===== COMMAND PALETTE ===== */
+.command-palette { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 480px; max-width: 90vw; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.5); overflow: hidden; }
+.command-input { width: 100%; padding: 14px 16px; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--text-primary); font-size: 14px; outline: none; }
+.command-input::placeholder { color: var(--text-muted); }
+.command-results { max-height: 300px; overflow-y: auto; }
+.command-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; font-size: 12px; transition: background 0.1s; }
+.command-item:hover, .command-item.active { background: var(--bg-hover); }
+.command-item kbd { margin-left: auto; font-size: 10px; color: var(--text-muted); background: var(--bg-deep); padding: 2px 6px; border-radius: 3px; }
+
+/* ===== ANIMATIONS ===== */
+@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ===== LEGACY SUPPORT ===== */
+.leaflet-popup-content-wrapper { border-radius: 8px !important; background: var(--bg-surface) !important; color: var(--text-primary) !important; border: 1px solid var(--border) !important; }
+.leaflet-popup-tip { background: var(--bg-surface) !important; }
+.leaflet-control-layers { border-color: var(--border) !important; background: var(--bg-surface) !important; color: var(--text-primary) !important; }
+.leaflet-control-layers label { color: var(--text-primary) !important; }
+.leaflet-control-zoom a { background: var(--bg-surface) !important; color: var(--text-primary) !important; border-color: var(--border) !important; }
