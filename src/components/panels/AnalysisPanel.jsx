@@ -83,9 +83,15 @@ function HomeView({ analysis }) {
         {thermal.anomalies.length > 0 && (
           <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {thermal.anomalies.slice(0, 4).map((a, i) => (
-              <span key={i} style={{ fontSize: 10, padding: '2px 6px', background: '#1a2332', border: '1px solid #1e3a5f', borderRadius: 4 }}>
+              <span key={i} style={{
+                fontSize: 10, padding: '2px 6px',
+                background: a.category === 'treasure' ? 'rgba(245,158,11,0.15)' : '#1a2332',
+                border: `1px solid ${a.category === 'treasure' ? '#f59e0b' : '#1e3a5f'}`,
+                borderRadius: 4,
+              }}>
                 {a.emoji} {a.label} <span style={{ color: '#3b82f6' }}>{(a.confidence * 100).toFixed(0)}%</span>
                 <span style={{ color: '#64748b', fontSize: 9 }}> {a.depth || '?'}</span>
+                {a.category === 'treasure' && <span style={{ color: '#f59e0b', fontSize: 8, marginLeft: 2 }}>👑</span>}
               </span>
             ))}
           </div>
@@ -224,8 +230,19 @@ function ThermalView({ analysis }) {
         <div className="panel" style={{ marginBottom: 8 }}>
           <div className="panel-header">🔍 Anomali</div>
           {anomalies.map((a, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 11, borderBottom: '1px solid #1e3a5f' }}>
+            <div key={i} style={{
+              display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 11,
+              borderBottom: '1px solid #1e3a5f',
+              background: a.category === 'treasure' ? 'rgba(245,158,11,0.05)' : 'transparent',
+            }}>
               <span style={{ flex: 1 }}>{a.emoji} {a.label}</span>
+              <span style={{
+                fontSize: 9, padding: '0 4px', borderRadius: 3, marginRight: 6,
+                background: a.category === 'treasure' ? 'rgba(245,158,11,0.2)' : 'transparent',
+                color: a.category === 'treasure' ? '#f59e0b' : '#64748b',
+              }}>
+                {a.category === 'treasure' ? '👑 HARTA' : '⛏️ MINERAL'}
+              </span>
               <span style={{ color: '#94a3b8', margin: '0 8px', fontSize: 10 }}>{a.depth || '?'} — {a.depthDesc || ''}</span>
               <span style={{ color: '#94a3b8' }}>{a.tempAnomaly > 0 ? '+' : ''}{a.tempAnomaly}°C</span>
               <span style={{ fontWeight: 700, color: '#3b82f6', marginLeft: 8 }}>{(a.confidence * 100).toFixed(0)}%</span>

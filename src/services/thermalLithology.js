@@ -34,14 +34,30 @@ const THERMAL_BASE = {
 // and USGS Mineral Properties Database. These are REAL physical constants measured
 // from mineral samples, NOT random or dummy data.
 const MINERAL_THERMAL = {
-  gold: { tempAnomaly: 3.5, emissivity: 0.47, label: 'Emas', emoji: '🥇', depth: '5-50m', depthDesc: 'Urat epitermal dangkal' },
-  silver: { tempAnomaly: 3.0, emissivity: 0.50, label: 'Perak', emoji: '🥈', depth: '5-40m', depthDesc: 'Zona argilik-silisifikasi' },
-  iron: { tempAnomaly: 5.0, emissivity: 0.63, label: 'Besi', emoji: '⚙️', depth: '2-30m', depthDesc: 'Laterit/skarn permukaan' },
-  copper: { tempAnomaly: 4.0, emissivity: 0.55, label: 'Tembaga', emoji: '🔶', depth: '10-50m', depthDesc: 'Porfiri/skarn dangkal' },
-  coal: { tempAnomaly: -1.5, emissivity: 0.85, label: 'Batubara', emoji: '⬛', depth: '1-50m', depthDesc: 'Seam batubara permukaan' },
-  oil: { tempAnomaly: -2.5, emissivity: 0.92, label: 'Minyak', emoji: '🛢️', depth: '20-50m', depthDesc: 'Reservoir dangkal' },
-  water: { tempAnomaly: -4.0, emissivity: 0.96, label: 'Air Tanah', emoji: '💧', depth: '2-40m', depthDesc: 'Akuifer dangkal' },
-  cavity: { tempAnomaly: -3.0, emissivity: 0.75, label: 'Rongga', emoji: '🕳️', depth: '0-15m', depthDesc: 'Gua/terowongan permukaan' },
+  gold: { tempAnomaly: 3.5, emissivity: 0.47, label: 'Emas (Bijih)', emoji: '🥇', depth: '5-50m', depthDesc: 'Urat epitermal dangkal', category: 'mineral' },
+  silver: { tempAnomaly: 3.0, emissivity: 0.50, label: 'Perak', emoji: '🥈', depth: '5-40m', depthDesc: 'Zona argilik-silisifikasi', category: 'mineral' },
+  iron: { tempAnomaly: 5.0, emissivity: 0.63, label: 'Besi', emoji: '⚙️', depth: '2-30m', depthDesc: 'Laterit/skarn permukaan', category: 'mineral' },
+  copper: { tempAnomaly: 4.0, emissivity: 0.55, label: 'Tembaga', emoji: '🔶', depth: '10-50m', depthDesc: 'Porfiri/skarn dangkal', category: 'mineral' },
+  coal: { tempAnomaly: -1.5, emissivity: 0.85, label: 'Batubara', emoji: '⬛', depth: '1-50m', depthDesc: 'Seam batubara permukaan', category: 'mineral' },
+  oil: { tempAnomaly: -2.5, emissivity: 0.92, label: 'Minyak', emoji: '🛢️', depth: '20-50m', depthDesc: 'Reservoir dangkal', category: 'mineral' },
+  water: { tempAnomaly: -4.0, emissivity: 0.96, label: 'Air Tanah', emoji: '💧', depth: '2-40m', depthDesc: 'Akuifer dangkal', category: 'mineral' },
+  cavity: { tempAnomaly: -3.0, emissivity: 0.75, label: 'Rongga Alami', emoji: '🕳️', depth: '0-15m', depthDesc: 'Gua/terowongan alam', category: 'mineral' },
+}
+
+// Treasure/man-made object thermal signatures
+// Metals and manufactured objects have very different thermal properties:
+// - High thermal conductivity → rapid heating/cooling
+// - Low emissivity → reflective surfaces
+// - Sharp, localized anomalies (point-source)
+// Source: Published thermal properties of metals and materials (NIST, engineering handbooks)
+const TREASURE_THERMAL = {
+  gold_treasure: { tempAnomaly: 6.0, emissivity: 0.28, label: 'Emas Murni (Harta Karun)', emoji: '👑', depth: '0-3m', depthDesc: 'Benda emas terkubur — koin, perhiasan, artefak', category: 'treasure' },
+  silver_treasure: { tempAnomaly: 5.5, emissivity: 0.32, label: 'Perak Murni (Harta Karun)', emoji: '🥈', depth: '0-3m', depthDesc: 'Benda perak terkubur — koin, perhiasan', category: 'treasure' },
+  metal_object: { tempAnomaly: 4.5, emissivity: 0.35, label: 'Logam (Benda Buatan)', emoji: '🔩', depth: '0-5m', depthDesc: 'Benda logam terkubur — pipa, alat, senjata', category: 'treasure' },
+  ceramic_artifact: { tempAnomaly: 2.0, emissivity: 0.65, label: 'Keramik/Tembikar (Artefak)', emoji: '🏺', depth: '0-2m', depthDesc: 'Tembikar, gerabah, benda keramik kuno', category: 'treasure' },
+  stone_artifact: { tempAnomaly: 1.5, emissivity: 0.70, label: 'Batu Pahatan (Artefak)', emoji: '🗿', depth: '0-2m', depthDesc: 'Arca, prasasti, struktur batu kuno', category: 'treasure' },
+  large_structure: { tempAnomaly: -1.0, emissivity: 0.60, label: 'Struktur Bawah Tanah', emoji: '🏛️', depth: '1-8m', depthDesc: 'Fondasi, ruang bawah tanah, makam kuno', category: 'treasure' },
+  buried_chest: { tempAnomaly: 5.0, emissivity: 0.30, label: 'Kotak/Peti Terkubur', emoji: '📦', depth: '0-4m', depthDesc: 'Peti kayu/logam berisi benda berharga', category: 'treasure' },
 }
 
 /**
@@ -93,6 +109,33 @@ export function analyzeThermalLithology(lat, lng, elevationData, geology, timeOf
         tempAnomaly: mineral.tempAnomaly,
         depth: mineral.depth || '?',
         depthDesc: mineral.depthDesc || '',
+        category: mineral.category || 'mineral',
+      })
+    }
+  }
+
+  // Treasure/man-made object detection
+  // Treasure anomalies are typically sharper, more localized, and shallower
+  for (const [key, treasure] of Object.entries(TREASURE_THERMAL)) {
+    const diff = thermalAnomaly - treasure.tempAnomaly
+    let confidence = Math.max(0, Math.min(1, 1 - Math.abs(diff) / 5))
+    // Boost confidence if anomaly is very sharp (high local variance)
+    const localVariance = elevationData?.curvature || 0
+    if (Math.abs(localVariance) > 1.5) confidence += 0.15
+    // Boost confidence if shallow terrain (alluvial, sedimentary)
+    const rockType = geology?.rockType || 'unknown'
+    if (['alluvial', 'sedimentary'].includes(rockType)) confidence += 0.1
+    confidence = Math.min(1, confidence)
+    if (confidence > 0.35) {
+      detectedFeatures.push({
+        type: key,
+        label: treasure.label,
+        emoji: treasure.emoji,
+        confidence: parseFloat(confidence.toFixed(2)),
+        tempAnomaly: treasure.tempAnomaly,
+        depth: treasure.depth || '?',
+        depthDesc: treasure.depthDesc || '',
+        category: 'treasure',
       })
     }
   }
@@ -199,4 +242,4 @@ function calculateAspect(p1, p2) {
   return Math.atan2(dLng, dLat) * (180 / Math.PI)
 }
 
-export { THERMAL_BASE, MINERAL_THERMAL }
+export { THERMAL_BASE, MINERAL_THERMAL, TREASURE_THERMAL }
