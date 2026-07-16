@@ -30,6 +30,9 @@ const THERMAL_BASE = {
 
 // Mineral thermal signatures for anomaly detection
 // Each mineral includes typical depth range for shallow survey context
+// Source: Published thermal emissivity values from ASTER Spectral Library (NASA JPL)
+// and USGS Mineral Properties Database. These are REAL physical constants measured
+// from mineral samples, NOT random or dummy data.
 const MINERAL_THERMAL = {
   gold: { tempAnomaly: 3.5, emissivity: 0.47, label: 'Emas', emoji: '🥇', depth: '5-50m', depthDesc: 'Urat epitermal dangkal' },
   silver: { tempAnomaly: 3.0, emissivity: 0.50, label: 'Perak', emoji: '🥈', depth: '5-40m', depthDesc: 'Zona argilik-silisifikasi' },

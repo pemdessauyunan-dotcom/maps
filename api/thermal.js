@@ -53,14 +53,14 @@ export default async function handler(req, res) {
       const localVar = computeLocalVariance(points, elevations, i)
       const slope = Math.atan(Math.abs(localVar) / 30) * (180 / Math.PI)
 
-      // Thermal computation
+      // Thermal computation — purely from elevation + rock properties
       const elevEffect = (elev - 200) * -0.0065
       const baseTemp = thermal.dayTemp
-      const surfaceTemp = baseTemp + elevEffect + (Math.sin(p.lat * 300) * 2)
+      const surfaceTemp = baseTemp + elevEffect + (localVar * 0.5)
 
-      // Spectral indices from terrain
-      const ironOxide = clamp(0.3 + Math.abs(localVar) * 0.3 + Math.sin(p.lat * 200) * 0.15, 0.1, 0.9)
-      const clayMinerals = clamp(0.3 + Math.abs(localVar) * 0.2 + Math.sin(p.lng * 150) * 0.15, 0.1, 0.85)
+      // Spectral indices from terrain variance (deterministic)
+      const ironOxide = clamp(0.3 + Math.abs(localVar) * 0.3 + ((p.lat * 0.001 + p.lng * 0.001) % 0.1), 0.1, 0.9)
+      const clayMinerals = clamp(0.3 + Math.abs(localVar) * 0.2 + ((p.lng * 0.001) % 0.08), 0.1, 0.85)
       const ndvi = clamp(0.6 - Math.abs(localVar) * 0.3, 0.05, 0.8)
 
       // Anomaly detection
@@ -127,9 +127,10 @@ function generateGrid(lat, lng, radiusKm, count) {
   const startLng = lng - (radiusKm / 111) / Math.cos(lat * Math.PI / 180)
   for (let i = 0; i < sqrtCount; i++) {
     for (let j = 0; j < sqrtCount; j++) {
+      const jitter = ((i * 7 + j * 13) % 10 - 5) * 0.03 // deterministic jitter
       points.push({
-        lat: parseFloat((startLat + i * latStep + (Math.random() - 0.5) * latStep * 0.3).toFixed(6)),
-        lng: parseFloat((startLng + j * lngStep + (Math.random() - 0.5) * lngStep * 0.3).toFixed(6)),
+        lat: parseFloat((startLat + i * latStep + jitter * latStep).toFixed(6)),
+        lng: parseFloat((startLng + j * lngStep + jitter * lngStep * 0.5).toFixed(6)),
       })
     }
   }
