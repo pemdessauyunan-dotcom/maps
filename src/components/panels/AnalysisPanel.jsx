@@ -85,6 +85,7 @@ function HomeView({ analysis }) {
             {thermal.anomalies.slice(0, 4).map((a, i) => (
               <span key={i} style={{ fontSize: 10, padding: '2px 6px', background: '#1a2332', border: '1px solid #1e3a5f', borderRadius: 4 }}>
                 {a.emoji} {a.label} <span style={{ color: '#3b82f6' }}>{(a.confidence * 100).toFixed(0)}%</span>
+                <span style={{ color: '#64748b', fontSize: 9 }}> {a.depth || '?'}</span>
               </span>
             ))}
           </div>
@@ -224,9 +225,10 @@ function ThermalView({ analysis }) {
           <div className="panel-header">🔍 Anomali</div>
           {anomalies.map((a, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 11, borderBottom: '1px solid #1e3a5f' }}>
-              <span>{a.emoji} {a.label}</span>
+              <span style={{ flex: 1 }}>{a.emoji} {a.label}</span>
+              <span style={{ color: '#94a3b8', margin: '0 8px', fontSize: 10 }}>{a.depth || '?'} — {a.depthDesc || ''}</span>
               <span style={{ color: '#94a3b8' }}>{a.tempAnomaly > 0 ? '+' : ''}{a.tempAnomaly}°C</span>
-              <span style={{ fontWeight: 700, color: '#3b82f6' }}>{(a.confidence * 100).toFixed(0)}%</span>
+              <span style={{ fontWeight: 700, color: '#3b82f6', marginLeft: 8 }}>{(a.confidence * 100).toFixed(0)}%</span>
             </div>
           ))}
         </div>
