@@ -82,14 +82,14 @@ function HomeView({ analysis }) {
         </div>
         {thermal.anomalies.length > 0 && (
           <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {thermal.anomalies.slice(0, 4).map((a, i) => (
+            {thermal.anomalies.filter(a => a.confidence > 0.1).slice(0, 8).map((a, i) => (
               <span key={i} style={{
                 fontSize: 10, padding: '2px 6px',
-                background: a.category === 'treasure' ? 'rgba(245,158,11,0.15)' : '#1a2332',
-                border: `1px solid ${a.category === 'treasure' ? '#f59e0b' : '#1e3a5f'}`,
-                borderRadius: 4,
+                background: a.matched ? (a.category === 'treasure' ? 'rgba(245,158,11,0.15)' : '#1a2332') : 'transparent',
+                border: `1px solid ${a.matched ? (a.category === 'treasure' ? '#f59e0b' : '#1e3a5f') : 'transparent'}`,
+                borderRadius: 4, opacity: a.matched ? 1 : 0.4,
               }}>
-                {a.emoji} {a.label} <span style={{ color: '#3b82f6' }}>{(a.confidence * 100).toFixed(0)}%</span>
+                {a.emoji} {a.label} <span style={{ color: a.matched ? '#3b82f6' : '#64748b' }}>{(a.confidence * 100).toFixed(0)}%</span>
                 <span style={{ color: '#64748b', fontSize: 9 }}> {a.depth || '?'}</span>
                 {a.category === 'treasure' && <span style={{ color: '#f59e0b', fontSize: 8, marginLeft: 2 }}>👑</span>}
               </span>

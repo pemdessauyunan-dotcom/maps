@@ -97,47 +97,43 @@ export function analyzeThermalLithology(lat, lng, elevationData, geology, timeOf
   
   // Mineral/cavity detection from thermal anomaly
   const detectedFeatures = []
+  // Always detect — even with low confidence, show potential
   for (const [key, mineral] of Object.entries(MINERAL_THERMAL)) {
     const diff = thermalAnomaly - mineral.tempAnomaly
     const confidence = Math.max(0, Math.min(1, 1 - Math.abs(diff) / 5))
-    if (confidence > 0.3) {
-      detectedFeatures.push({
-        type: key,
-        label: mineral.label,
-        emoji: mineral.emoji,
-        confidence: parseFloat(confidence.toFixed(2)),
-        tempAnomaly: mineral.tempAnomaly,
-        depth: mineral.depth || '?',
-        depthDesc: mineral.depthDesc || '',
-        category: mineral.category || 'mineral',
-      })
-    }
+    detectedFeatures.push({
+      type: key,
+      label: mineral.label,
+      emoji: mineral.emoji,
+      confidence: parseFloat(confidence.toFixed(2)),
+      tempAnomaly: mineral.tempAnomaly,
+      depth: mineral.depth || '?',
+      depthDesc: mineral.depthDesc || '',
+      category: mineral.category || 'mineral',
+      matched: confidence > 0.3,
+    })
   }
 
   // Treasure/man-made object detection
-  // Treasure anomalies are typically sharper, more localized, and shallower
   for (const [key, treasure] of Object.entries(TREASURE_THERMAL)) {
     const diff = thermalAnomaly - treasure.tempAnomaly
     let confidence = Math.max(0, Math.min(1, 1 - Math.abs(diff) / 5))
-    // Boost confidence if anomaly is very sharp (high local variance)
     const localVariance = elevationData?.curvature || 0
     if (Math.abs(localVariance) > 1.5) confidence += 0.15
-    // Boost confidence if shallow terrain (alluvial, sedimentary)
     const rockType = geology?.rockType || 'unknown'
     if (['alluvial', 'sedimentary'].includes(rockType)) confidence += 0.1
     confidence = Math.min(1, confidence)
-    if (confidence > 0.35) {
-      detectedFeatures.push({
-        type: key,
-        label: treasure.label,
-        emoji: treasure.emoji,
-        confidence: parseFloat(confidence.toFixed(2)),
-        tempAnomaly: treasure.tempAnomaly,
-        depth: treasure.depth || '?',
-        depthDesc: treasure.depthDesc || '',
-        category: 'treasure',
-      })
-    }
+    detectedFeatures.push({
+      type: key,
+      label: treasure.label,
+      emoji: treasure.emoji,
+      confidence: parseFloat(confidence.toFixed(2)),
+      tempAnomaly: treasure.tempAnomaly,
+      depth: treasure.depth || '?',
+      depthDesc: treasure.depthDesc || '',
+      category: 'treasure',
+      matched: confidence > 0.35,
+    })
   }
   
   detectedFeatures.sort((a, b) => b.confidence - a.confidence)

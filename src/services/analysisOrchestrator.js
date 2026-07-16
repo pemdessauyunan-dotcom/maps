@@ -11,6 +11,7 @@ import { analyzeVegetation } from './vegetationAnalysis'
 import { calculateProspectivity } from './prospectivityModel'
 import { predictDepth } from './depthPrediction'
 import { fetchTerrainGrid } from './terrainService'
+import { fetchEnvironmentalData, computeSpectralFromEnvironment } from './environmentalApi'
 
 /**
  * Full analysis pipeline for a single geographic point
@@ -33,6 +34,19 @@ export async function analyzePoint(lat, lng) {
   // 4. Spectral
   const lithology = getIndonesiaLithology(lat, lng, elevation)
   const spectral = computeSpectralIndices(lithology, { elevation, slope: 0, lat, lng })
+
+  // 4b. Enhanced spectral from real environmental data (NASA POWER)
+  const envData = await fetchEnvironmentalData(lat, lng)
+  const envSpectral = computeSpectralFromEnvironment(envData, lithology)
+  // Merge: use real environmental data where available, fallback to computed
+  if (envSpectral) {
+    spectral.indices.iron_oxide = (spectral.indices.iron_oxide + envSpectral.iron_oxide) / 2
+    spectral.indices.clay_minerals = (spectral.indices.clay_minerals + envSpectral.clay_minerals) / 2
+    spectral.indices.silica_index = (spectral.indices.silica_index + envSpectral.silica_index) / 2
+    spectral.indices.ndvi = (spectral.indices.ndvi + envSpectral.ndvi) / 2
+    spectral.environmental = envSpectral
+  }
+
   const alteration = detectAlteration(spectral.indices, lithology)
   const epithermal = analyzeEpithermal(lithology, spectral.indices, alteration)
 
