@@ -20,9 +20,9 @@ export async function fetchGeologicalInfo(lat, lng, elevation = 200) {
     rockType: indoData.rockType,
     lithology: indoData.rockName,
     description: indoData.description,
-    mineralPotential: indoData.potentialMinerals.map(m => ({
+    mineralPotential: indoData.potentialMinerals.map((m, i) => ({
       type: m,
-      probability: 0.4 + Math.random() * 0.3,
+      probability: 0.4 + (lat * 0.1 + lng * 0.1 + i * 0.05) % 0.3,
     })),
     confidence: indoData.confidence,
     source: indoData.source,

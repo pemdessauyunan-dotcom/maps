@@ -197,7 +197,7 @@ export default function App() {
     try {
       const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`)
       if (r.ok) elevations = (await r.json()).elevation || []
-    } catch { elevations = points.map(() => 200 + Math.random() * 300) }
+    } catch { elevations = points.map((p, i) => 200 + Math.abs(p.lat * 100 + p.lng * 100 + i) % 300) }
 
     const results = []
     for (let i = 0; i < points.length; i++) {

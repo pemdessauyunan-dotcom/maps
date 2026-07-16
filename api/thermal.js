@@ -141,7 +141,7 @@ async function fetchElevations(points) {
     const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${points.map(p=>p.lat.toFixed(5)).join(',')}&longitude=${points.map(p=>p.lng.toFixed(5)).join(',')}`)
     if (res.ok) return (await res.json()).elevation || []
   } catch {}
-  return points.map(() => 200 + Math.random() * 300)
+  return points.map((p, i) => 200 + Math.abs(p.lat * 100 + p.lng * 100 + i) % 300)
 }
 
 async function fetchGeology(lat, lng) {

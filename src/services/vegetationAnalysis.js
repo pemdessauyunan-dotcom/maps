@@ -82,11 +82,12 @@ export function analyzeVegetation(lat, lng, terrain, geology, anomalies = []) {
     }
   }
 
-  // Add random noise for realism
-  ndvi += (Math.random() - 0.5) * 0.08
-  ndre += (Math.random() - 0.5) * 0.06
-  redEdge += (Math.random() - 0.5) * 0.05
-  moisture += (Math.random() - 0.5) * 0.06
+  // Add deterministic variation based on coordinates
+  const coordHash = Math.abs(lat * 1000 + lng * 1000) % 100 / 100
+  ndvi += (coordHash - 0.5) * 0.08 * 0.5
+  ndre += (coordHash * 0.7 - 0.35) * 0.06
+  redEdge += (coordHash * 0.6 - 0.3) * 0.05
+  moisture += (coordHash * 0.8 - 0.4) * 0.06
 
   // Clamp values
   ndvi = clamp(ndvi, 0.05, 0.9)

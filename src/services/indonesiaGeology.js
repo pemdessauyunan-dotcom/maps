@@ -269,11 +269,11 @@ export function getIndonesiaLithology(lat, lng, elevation = 200) {
   const province = determineProvince(lat, lng)
   const geoData = INDONESIA_LITHOLOGY[province] || INDONESIA_LITHOLOGY.west_java_volcanic
   
-  // Select rock type based on elevation
+  // Select rock type based on elevation (deterministic)
   const terrainType = elevation > 500 ? 'mountainous' : elevation > 200 ? 'hills' : 'lowlands'
   const possibleRocks = geoData.rocks.filter(r => r.coverage === terrainType || r.coverage === 'all')
   const rock = possibleRocks.length > 0
-    ? possibleRocks[Math.floor(Math.random() * possibleRocks.length)]
+    ? possibleRocks[Math.abs(Math.floor(lat * 1000 + lng * 1000)) % possibleRocks.length]
     : geoData.rocks[0]
   
   return {
@@ -322,11 +322,11 @@ export function computeSpectralIndices(lithology, terrain) {
   const slopeFactor = Math.min(slope / 45, 1)
   
   const indices = {
-    iron_oxide: clamp(sig.ironOxide + slopeFactor * 0.15 + Math.random() * 0.08, 0.05, 0.95),
-    clay_minerals: clamp(sig.clay + (1 - elevFactor) * 0.15 + Math.random() * 0.08, 0.05, 0.9),
-    ferrous_minerals: clamp(sig.ferrous + slopeFactor * 0.1 + Math.random() * 0.06, 0.05, 0.9),
-    silica_index: clamp(sig.silica + (1 - slopeFactor) * 0.1 + Math.random() * 0.06, 0.05, 0.85),
-    ndvi: clamp(sig.ndvi - elevFactor * 0.2 - slopeFactor * 0.15 + Math.random() * 0.1, 0.05, 0.85),
+    iron_oxide: clamp(sig.ironOxide + slopeFactor * 0.15 + (lat * 0.001 + lng * 0.001) % 0.08, 0.05, 0.95),
+    clay_minerals: clamp(sig.clay + (1 - elevFactor) * 0.15 + (lng * 0.001) % 0.08, 0.05, 0.9),
+    ferrous_minerals: clamp(sig.ferrous + slopeFactor * 0.1 + (lat * 0.001) % 0.06, 0.05, 0.9),
+    silica_index: clamp(sig.silica + (1 - slopeFactor) * 0.1 + (lng * 0.0005) % 0.06, 0.05, 0.85),
+    ndvi: clamp(sig.ndvi - elevFactor * 0.2 - slopeFactor * 0.15 + (lat * 0.0005 + lng * 0.0005) % 0.1, 0.05, 0.85),
     alteration_index: 0,
   }
   
