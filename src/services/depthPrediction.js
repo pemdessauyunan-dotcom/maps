@@ -1,358 +1,253 @@
 /**
- * Depth Prediction Engine
- * Memprediksi kedalaman potensi mineral berdasarkan multi-indikator.
+ * Shallow Depth Prediction Engine (1-50m)
+ * Untuk survey lapangan — deteksi rongga, air tanah, urat dangkal, terowongan.
  * 
- * Prinsip:
- * 1. Geothermal gradient: 25-30°C/km (rata-rata Indonesia: 27°C/km)
- * 2. Zona alterasi → depth range spesifik
- * 3. Tipe deposit → depth range (epitermal dangkal, porfiri dalam)
- * 4. Thermal anomaly → korelasi dengan kedalaman sumber panas
- * 5. Lineament density → struktur dalam vs dangkal
+ * Prinsip Shallow Survey:
+ * 1. Thermal anomaly → hotspot/coldspot dekat permukaan (0-20m)
+ * 2. Anomali besar (>3°C) = sumber sangat dangkal (<5m)
+ * 3. Anomali kecil (1-2°C) = sumber agak dalam (20-50m)
+ * 4. Anomali negatif = rongga/air (0-30m)
+ * 5. Kerapatan lineament = struktur permukaan (0-20m)
+ * 6. Jenis anomali = target spesifik (cavity, water, vein, etc)
  */
 
-// Alteration zone depth ranges (meters)
-const ALTERATION_DEPTH = {
-  silicification: { min: 0, max: 500, optimal: 200, label: 'Silisifikasi', desc: 'Zona inti epitermal — dangkal' },
-  argillic: { min: 100, max: 1000, optimal: 400, label: 'Argilik', desc: 'Halo alterasi — dangkal hingga moderat' },
-  propylitic: { min: 500, max: 2000, optimal: 1000, label: 'Propilitik', desc: 'Zona distal — moderat' },
-  potassic: { min: 1000, max: 3000, optimal: 1800, label: 'Potasik', desc: 'Zona inti porfiri — dalam' },
-  silicic: { min: 50, max: 400, optimal: 150, label: 'Silik (vuggy)', desc: 'High-sulfidation — sangat dangkal' },
+// Shallow target depth ranges (meters)
+const SHALLOW_TARGETS = {
+  cavity: { min: 0, max: 15, optimal: 5, label: 'Rongga/Terowongan', emoji: '🕳️', desc: 'Rongga bawah tanah, gua, terowongan' },
+  water: { min: 2, max: 40, optimal: 15, label: 'Air Tanah', emoji: '💧', desc: 'Akuifer dangkal, aliran air tanah' },
+  vein: { min: 5, max: 50, optimal: 25, label: 'Urat Mineral', emoji: '💎', desc: 'Urat kuarsa, mineralisasi dangkal' },
+  hot_spring: { min: 0, max: 30, optimal: 10, label: 'Sumber Air Panas', emoji: '♨️', desc: 'Manifestasi hidrotermal permukaan' },
+  clay: { min: 1, max: 30, optimal: 10, label: 'Zona Lempung', emoji: '🧱', desc: 'Alterasi lempung, impermeable layer' },
+  bedrock: { min: 10, max: 50, optimal: 30, label: 'Batuan Dasar', emoji: '🪨', desc: 'Kontak soil-bedrock, pelapisan' },
 }
 
-// Deposit type depth ranges
-const DEPOSIT_DEPTH = {
-  high_sulfidation: { min: 0, max: 500, optimal: 200, label: 'High Sulfidation Epitermal' },
-  low_sulfidation: { min: 100, max: 800, optimal: 400, label: 'Low Sulfidation Epitermal' },
-  porphyry: { min: 1000, max: 3000, optimal: 1500, label: 'Porfiri Cu-Au' },
-  skarn: { min: 500, max: 2000, optimal: 1000, label: 'Skarn' },
-  laterite: { min: 0, max: 50, optimal: 15, label: 'Laterit/Nikel' },
-  vein: { min: 0, max: 1000, optimal: 300, label: 'Urat (Vein)' },
-}
-
-// Mineral depth associations
-const MINERAL_DEPTH = {
-  gold: { deposits: ['high_sulfidation', 'low_sulfidation', 'porphyry'], shallowOptimal: 200, deepOptimal: 1500 },
-  silver: { deposits: ['high_sulfidation', 'low_sulfidation'], shallowOptimal: 300, deepOptimal: 600 },
-  copper: { deposits: ['porphyry', 'skarn'], shallowOptimal: 1000, deepOptimal: 2000 },
-  iron: { deposits: ['skarn', 'laterite'], shallowOptimal: 50, deepOptimal: 1000 },
-  water: { deposits: [], shallowOptimal: 50, deepOptimal: 200 },
-  cavity: { deposits: [], shallowOptimal: 0, deepOptimal: 100 },
+// Rock type → shallow soil/bedrock depth
+const SOIL_DEPTH = {
+  alluvial: { depth: 15, min: 5, max: 40, label: 'Aluvial — soil dalam' },
+  sedimentary: { depth: 10, min: 3, max: 30, label: 'Sedimen — soil moderat' },
+  sandstone: { depth: 8, min: 2, max: 25, label: 'Batu Pasir — soil tipis' },
+  limestone: { depth: 20, min: 5, max: 50, label: 'Batu Kapur — soil dalam + karst' },
+  volcanic: { depth: 5, min: 1, max: 20, label: 'Vulkanik — soil tipis, batuan keras' },
+  igneous: { depth: 3, min: 1, max: 15, label: 'Beku — soil sangat tipis' },
+  basalt: { depth: 4, min: 1, max: 12, label: 'Basalt — soil tipis' },
+  metamorphic: { depth: 6, min: 2, max: 20, label: 'Metamorf — soil tipis-moderat' },
 }
 
 /**
- * Predict depth of mineral potential
+ * Predict shallow depth (1-50m) of target
  * @param {Object} thermal - Thermal analysis
  * @param {Object} alteration - Alteration zone
  * @param {Object} lineament - Lineament analysis
  * @param {Object} prospectivity - Prospectivity model result
  * @param {Object} geology - Geological info
- * @returns {Object} Depth prediction
+ * @returns {Object} Shallow depth prediction
  */
 export function predictDepth(thermal, alteration, lineament, prospectivity, geology) {
-  // 1. Estimate from thermal anomaly
-  const thermalDepth = estimateDepthFromThermal(thermal)
+  // 1. Thermal anomaly → shallow depth
+  const thermalDepth = estimateFromThermal(thermal)
 
-  // 2. Estimate from alteration zone
-  const alterationDepth = estimateDepthFromAlteration(alteration)
+  // 2. Anomaly type → target identification
+  const targetDepth = identifyTarget(thermal, alteration, prospectivity)
 
-  // 3. Estimate from lineament density
-  const lineamentDepth = estimateDepthFromLineament(lineament)
+  // 3. Lineament → shallow structure
+  const lineamentDepth = estimateFromLineament(lineament)
 
-  // 4. Estimate from deposit type
-  const depositDepth = estimateDepthFromDeposits(prospectivity, alteration)
+  // 4. Rock type → soil/bedrock depth
+  const rockDepth = estimateFromRockType(geology)
 
-  // 5. Geology-based estimate
-  const geologyDepth = estimateDepthFromGeology(geology)
-
-  // Combine all estimates (weighted average)
+  // Combine estimates (weighted)
   const estimates = [
-    { ...thermalDepth, weight: 0.25 },
-    { ...alterationDepth, weight: alteration ? 0.30 : 0 },
+    { ...thermalDepth, weight: 0.35 },
+    { ...targetDepth, weight: targetDepth ? 0.30 : 0 },
     { ...lineamentDepth, weight: 0.15 },
-    { ...depositDepth, weight: prospectivity ? 0.20 : 0 },
-    { ...geologyDepth, weight: 0.10 },
+    { ...rockDepth, weight: 0.20 },
   ]
 
-  const validEstimates = estimates.filter(e => e.weight > 0 && e.depth != null)
-  const totalWeight = validEstimates.reduce((s, e) => s + e.weight, 0)
+  const valid = estimates.filter(e => e.weight > 0 && e.depth != null)
+  const totalWeight = valid.reduce((s, e) => s + e.weight, 0)
 
-  let weightedDepth = 0
-  let minDepth = Infinity
-  let maxDepth = -Infinity
-
-  for (const e of validEstimates) {
-    weightedDepth += e.depth * e.weight
-    if (e.minDepth != null && e.minDepth < minDepth) minDepth = e.minDepth
-    if (e.maxDepth != null && e.maxDepth > maxDepth) maxDepth = e.maxDepth
-    if (e.minDepth == null && e.depth < minDepth) minDepth = e.depth
-    if (e.maxDepth == null && e.depth > maxDepth) maxDepth = e.depth
+  let depth = 0, minD = Infinity, maxD = -Infinity
+  for (const e of valid) {
+    depth += e.depth * e.weight
+    if (e.minDepth != null && e.minDepth < minD) minD = e.minDepth
+    if (e.maxDepth != null && e.maxDepth > maxD) maxD = e.maxDepth
   }
+  const finalDepth = totalWeight > 0 ? Math.round(depth / totalWeight) : 10
 
-  const finalDepth = totalWeight > 0 ? weightedDepth / totalWeight : null
+  // Clamp to 1-50m
+  const clamped = Math.max(1, Math.min(50, finalDepth))
+  const minClamped = Math.max(0, minD !== Infinity ? Math.round(minD) : 1)
+  const maxClamped = Math.min(50, maxD !== -Infinity ? Math.round(maxD) : 50)
 
-  if (finalDepth == null) {
-    return { depth: null, minDepth: null, maxDepth: null, confidence: 0, layers: [], summary: 'Data tidak cukup untuk prediksi kedalaman.' }
-  }
+  // Target identification
+  const target = targetDepth?.target || identifyTargetFallback(thermal, prospectivity)
 
-  // Determine depth classification
-  const classification = classifyDepth(finalDepth)
-
-  // Generate depth layers
-  const layers = generateDepthLayers(finalDepth, alteration, prospectivity)
-
-  // Confidence calculation
-  const confidence = calculateDepthConfidence(validEstimates, totalWeight)
+  // Classification
+  const classification = classifyDepth(clamped)
+  const layers = generateLayers(clamped, target)
+  const confidence = calcConfidence(valid, totalWeight, thermal)
 
   return {
-    depth: Math.round(finalDepth),
-    minDepth: minDepth !== Infinity ? Math.round(minDepth) : Math.round(finalDepth * 0.5),
-    maxDepth: maxDepth !== -Infinity ? Math.round(maxDepth) : Math.round(finalDepth * 1.5),
+    depth: clamped,
+    minDepth: Math.max(0, clamped - 5),
+    maxDepth: Math.min(50, clamped + 8),
     confidence: parseFloat(confidence.toFixed(2)),
+    target,
     classification,
     layers,
-    summary: generateDepthSummary(finalDepth, classification, confidence),
-    recommendedExploration: getDepthRecommendation(finalDepth, classification),
+    summary: `Prediksi kedalaman: ${clamped}m (${classification.range}). Target: ${target.emoji} ${target.label}. ${classification.desc}`,
+    recommendedAction: getRecommendation(clamped, target),
   }
 }
 
-function estimateDepthFromThermal(thermal) {
-  if (!thermal || !thermal.temperature) return { depth: null, minDepth: null, maxDepth: null }
+// ===== ESTIMATORS =====
 
-  const surfaceTemp = thermal.temperature.surface || 30
-  const anomaly = thermal.temperature.anomaly || 0
-  const rockType = thermal.lithology?.rockType || 'unknown'
+function estimateFromThermal(thermal) {
+  if (!thermal?.temperature) return { depth: 15, minDepth: 5, maxDepth: 40 }
 
-  // Geothermal gradient: 27°C/km (Indonesia average)
-  const gradient = 27
-  const ambientTemp = 28 // Average surface temperature
-  const tempDiff = surfaceTemp - ambientTemp
+  const anomaly = Math.abs(thermal.temperature.anomaly || 0)
+  const isNegative = (thermal.temperature.anomaly || 0) < 0
 
-  // Positive anomaly = heat source closer to surface
-  // Negative anomaly = cold body (water, cavity) near surface
-  let depth = null
-  let minDepth = null
-  let maxDepth = null
-
-  if (Math.abs(anomaly) > 0.5) {
-    // Strong anomaly = shallow source
-    depth = Math.max(10, (gradient * 1000) / Math.abs(anomaly * 10))
-    depth = Math.min(depth, 2000)
-    minDepth = Math.max(5, depth * 0.3)
-    maxDepth = Math.min(3000, depth * 2)
-  } else {
-    // Weak or no anomaly = deep source or no source
-    depth = 500
-    minDepth = 100
-    maxDepth = 2000
+  // Negative anomaly = cold body (cavity, water) — very shallow
+  if (isNegative && anomaly > 1) {
+    return { depth: Math.max(1, 15 - anomaly * 3), minDepth: 0, maxDepth: 25 }
   }
 
-  // Adjust for rock type thermal conductivity
-  const conductivityFactors = {
-    igneous: 0.8, granite: 0.7, basalt: 0.9,
-    volcanic: 0.85, sedimentary: 1.2, sandstone: 1.1,
-    limestone: 1.3, metamorphic: 0.9, alluvial: 1.5,
-  }
-  const factor = conductivityFactors[rockType] || 1.0
-  depth = depth * factor
+  // Strong positive anomaly = hot source near surface
+  if (anomaly > 4) return { depth: Math.max(1, 3), minDepth: 0, maxDepth: 8 }
+  if (anomaly > 3) return { depth: Math.max(1, 5), minDepth: 1, maxDepth: 12 }
+  if (anomaly > 2) return { depth: Math.max(1, 10), minDepth: 3, maxDepth: 20 }
+  if (anomaly > 1) return { depth: Math.max(1, 18), minDepth: 5, maxDepth: 35 }
 
-  return { depth, minDepth, maxDepth }
+  return { depth: 25, minDepth: 10, maxDepth: 50 }
 }
 
-function estimateDepthFromAlteration(alteration) {
-  if (!alteration) return { depth: null, minDepth: null, maxDepth: null }
-
-  // Map alteration name to key
-  const nameMap = {
-    'Silisifikasi': 'silicification',
-    'Argilik': 'argillic',
-    'Propilitik': 'propylitic',
-    'Potasik': 'potassic',
-    'Silik': 'silicic',
+function identifyTarget(thermal, alteration, prospectivity) {
+  // Cavity detection: negative anomaly + no alteration
+  if (thermal?.temperature?.anomaly < -2) {
+    return { ...SHALLOW_TARGETS.cavity, depth: 5, minDepth: 0, maxDepth: 15 }
   }
 
-  const key = nameMap[alteration.name] || Object.keys(ALTERATION_DEPTH).find(
-    k => alteration.name?.toLowerCase().includes(k)
-  )
-
-  if (!key || !ALTERATION_DEPTH[key]) {
-    return { depth: 500, minDepth: 0, maxDepth: 2000 }
+  // Hot spring: high positive anomaly + volcanic rock
+  if (thermal?.temperature?.anomaly > 3 && thermal?.lithology?.rockType === 'volcanic') {
+    return { ...SHALLOW_TARGETS.hot_spring, depth: 8, minDepth: 0, maxDepth: 25 }
   }
 
-  const depthInfo = ALTERATION_DEPTH[key]
-  return {
-    depth: depthInfo.optimal,
-    minDepth: depthInfo.min,
-    maxDepth: depthInfo.max,
-    alterationZone: depthInfo,
+  // Vein: prospectivity predicts gold/silver + alteration present
+  if (prospectivity?.mineralPredictions?.some(p => ['gold', 'silver', 'copper'].includes(p.id))) {
+    if (alteration) {
+      return { ...SHALLOW_TARGETS.vein, depth: 20, minDepth: 5, maxDepth: 45 }
+    }
   }
+
+  // Clay zone: alteration detected but no strong anomaly
+  if (alteration && Math.abs(thermal?.temperature?.anomaly || 0) < 2) {
+    return { ...SHALLOW_TARGETS.clay, depth: 10, minDepth: 2, maxDepth: 25 }
+  }
+
+  // Water: sedimentary rock + no anomaly
+  if (thermal?.lithology?.rockType === 'sedimentary' || thermal?.lithology?.rockType === 'alluvial') {
+    return { ...SHALLOW_TARGETS.water, depth: 12, minDepth: 3, maxDepth: 35 }
+  }
+
+  return null
 }
 
-function estimateDepthFromLineament(lineament) {
-  if (!lineament || !lineament.lineaments || lineament.lineaments.length === 0) {
-    return { depth: 500, minDepth: 100, maxDepth: 2000 }
+function identifyTargetFallback(thermal, prospectivity) {
+  if (thermal?.temperature?.anomaly < -1) return SHALLOW_TARGETS.cavity
+  if (thermal?.temperature?.anomaly > 2) return SHALLOW_TARGETS.hot_spring
+  if (prospectivity?.mineralPredictions?.length > 0) return SHALLOW_TARGETS.vein
+  return SHALLOW_TARGETS.bedrock
+}
+
+function estimateFromLineament(lineament) {
+  if (!lineament?.lineaments || lineament.lineaments.length === 0) {
+    return { depth: 20, minDepth: 5, maxDepth: 45 }
   }
 
-  // High density lineament = shallow structures
-  // Low density = deep structures
   const density = lineament.density || 0
-  const confidence = lineament.confidence || 0
+  const conf = lineament.confidence || 0
 
-  // Deep structures (low density, high confidence) = deeper
-  // Shallow structures (high density) = shallower
-  let depth = 500
-  let minDepth = 100
-  let maxDepth = 2000
+  // Dense lineament = shallow fractures
+  if (density > 0.3 && conf > 0.5) return { depth: 5, minDepth: 1, maxDepth: 15 }
+  if (density > 0.15) return { depth: 12, minDepth: 3, maxDepth: 25 }
+  if (conf > 0.5) return { depth: 20, minDepth: 8, maxDepth: 40 }
 
-  if (density > 0.3 && confidence > 0.5) {
-    depth = 200 // Dense shallow structures
-    minDepth = 50
-    maxDepth = 800
-  } else if (density > 0.15) {
-    depth = 400
-    minDepth = 100
-    maxDepth = 1500
-  } else if (confidence > 0.5) {
-    depth = 800 // Deep structures
-    minDepth = 300
-    maxDepth = 2500
-  }
-
-  return { depth, minDepth, maxDepth }
+  return { depth: 25, minDepth: 10, maxDepth: 50 }
 }
 
-function estimateDepthFromDeposits(prospectivity, alteration) {
-  if (!prospectivity || !prospectivity.mineralPredictions || prospectivity.mineralPredictions.length === 0) {
-    return { depth: null, minDepth: null, maxDepth: null }
-  }
+function estimateFromRockType(geology) {
+  if (!geology?.rockType) return { depth: 10, minDepth: 3, maxDepth: 30 }
 
-  const topMineral = prospectivity.mineralPredictions[0]
-  const mineralInfo = MINERAL_DEPTH[topMineral.id]
-  if (!mineralInfo) return { depth: 500, minDepth: 100, maxDepth: 2000 }
-
-  // Check if alteration matches
-  const alterationName = alteration?.name || ''
-  const isEpithermal = alterationName.includes('Silisifikasi') || alterationName.includes('Argilik')
-  const isPorphyry = alterationName.includes('Potasik')
-
-  let depth, minDepth, maxDepth
-  if (isEpithermal) {
-    depth = mineralInfo.shallowOptimal
-    minDepth = 0
-    maxDepth = 800
-  } else if (isPorphyry) {
-    depth = mineralInfo.deepOptimal
-    minDepth = 1000
-    maxDepth = 3000
-  } else {
-    depth = (mineralInfo.shallowOptimal + mineralInfo.deepOptimal) / 2
-    minDepth = Math.min(mineralInfo.shallowOptimal, mineralInfo.deepOptimal) * 0.5
-    maxDepth = Math.max(mineralInfo.shallowOptimal, mineralInfo.deepOptimal) * 1.5
-  }
-
-  return { depth, minDepth, maxDepth }
-}
-
-function estimateDepthFromGeology(geology) {
-  if (!geology) return { depth: 500, minDepth: 100, maxDepth: 2000 }
-
-  const rockType = geology.rockType || 'unknown'
-  const depthMap = {
-    volcanic: { depth: 300, min: 50, max: 1500 },
-    igneous: { depth: 500, min: 100, max: 2000 },
-    basalt: { depth: 400, min: 100, max: 1500 },
-    sedimentary: { depth: 600, min: 100, max: 2500 },
-    limestone: { depth: 400, min: 50, max: 1500 },
-    sandstone: { depth: 500, min: 100, max: 2000 },
-    shale: { depth: 700, min: 200, max: 2500 },
-    metamorphic: { depth: 800, min: 200, max: 3000 },
-    alluvial: { depth: 50, min: 0, max: 200 },
-  }
-
-  const info = depthMap[rockType] || { depth: 500, min: 100, max: 2000 }
+  const info = SOIL_DEPTH[geology.rockType] || SOIL_DEPTH.sedimentary
   return { depth: info.depth, minDepth: info.min, maxDepth: info.max }
 }
 
+// ===== CLASSIFICATION =====
+
 function classifyDepth(depth) {
-  if (depth < 100) return { id: 'very_shallow', label: 'Sangat Dangkal', emoji: '🟢', range: '0-100m', desc: 'Permukaan hingga 100m' }
-  if (depth < 300) return { id: 'shallow', label: 'Dangkal', emoji: '🟡', range: '100-300m', desc: 'Zona epitermal & laterit' }
-  if (depth < 800) return { id: 'moderate', label: 'Moderat', emoji: '🟠', range: '300-800m', desc: 'Zona transisi epitermal-porfiri' }
-  if (depth < 1500) return { id: 'deep', label: 'Dalam', emoji: '🔴', range: '800-1500m', desc: 'Zona porfiri & skarn' }
-  return { id: 'very_deep', label: 'Sangat Dalam', emoji: '🟣', range: '>1500m', desc: 'Zona porfiri dalam & basement' }
+  if (depth <= 5) return { id: 'surface', label: 'Permukaan', emoji: '🟢', range: '0-5m', desc: 'Sangat dekat permukaan' }
+  if (depth <= 15) return { id: 'shallow', label: 'Dangkal', emoji: '🟡', range: '5-15m', desc: 'Zona dangkal, mudah dijangkau' }
+  if (depth <= 30) return { id: 'moderate', label: 'Moderat', emoji: '🟠', range: '15-30m', desc: 'Zona moderat, perlu bor' }
+  return { id: 'deep_shallow', label: 'Dalam (Shallow)', emoji: '🔴', range: '30-50m', desc: 'Zona dalam shallow survey' }
 }
 
-function generateDepthLayers(depth, alteration, prospectivity) {
+// ===== LAYERS =====
+
+function generateLayers(depth, target) {
   const layers = []
-  const step = Math.max(50, Math.round(depth / 5 / 50) * 50)
+  const step = Math.max(2, Math.round(depth / 5))
 
   for (let d = 0; d <= depth + step; d += step) {
     const ratio = d / depth
-    let label, emoji, intensity
+    let label, emoji
+    if (ratio < 0.2) { label = 'Permukaan'; emoji = '🟢' }
+    else if (ratio < 0.4) { label = 'Subsurface'; emoji = '🟡' }
+    else if (ratio < 0.6) { label = 'Zona Target'; emoji = '🟠' }
+    else if (ratio < 0.8) { label = 'Dalam'; emoji = '🔴' }
+    else { label = 'Batuan Dasar'; emoji = '🟣' }
 
-    if (ratio < 0.2) {
-      label = 'Zone Permukaan'
-      emoji = '🟢'
-      intensity = 0.2
-    } else if (ratio < 0.4) {
-      label = 'Zone Dangkal'
-      emoji = '🟡'
-      intensity = 0.4
-    } else if (ratio < 0.6) {
-      label = 'Zone Transisi'
-      emoji = '🟠'
-      intensity = 0.6
-    } else if (ratio < 0.8) {
-      label = 'Zone Dalam'
-      emoji = '🔴'
-      intensity = 0.8
-    } else {
-      label = 'Zone Sangat Dalam'
-      emoji = '🟣'
-      intensity = 1.0
-    }
-
-    // Check if alteration matches this depth
-    let alterationMatch = null
-    if (alteration) {
-      for (const [, info] of Object.entries(ALTERATION_DEPTH)) {
-        if (d >= info.min && d <= info.max) {
-          alterationMatch = { zone: info.label, optimal: d >= info.optimal - 50 && d <= info.optimal + 50 }
-        }
-      }
-    }
+    const isTarget = target && d >= target.optimal - 3 && d <= target.optimal + 3
 
     layers.push({
       depth: d,
       label,
       emoji,
-      intensity,
-      alterationMatch,
+      isTarget,
+      targetLabel: isTarget ? target.emoji + ' ' + target.label : null,
     })
   }
-
   return layers
 }
 
-function calculateDepthConfidence(estimates, totalWeight) {
-  let confidence = 0
-  confidence += Math.min(totalWeight / 1.0, 1) * 0.5
-  confidence += estimates.filter(e => e.depth != null).length / 5 * 0.3
-  confidence += estimates.some(e => e.alterationZone) ? 0.2 : 0
-  return Math.min(1, confidence)
+// ===== CONFIDENCE =====
+
+function calcConfidence(valid, totalWeight, thermal) {
+  let c = 0
+  c += Math.min(totalWeight / 1.0, 1) * 0.4
+  c += valid.length / 4 * 0.3
+  c += Math.abs(thermal?.temperature?.anomaly || 0) / 5 * 0.3
+  return Math.min(1, parseFloat(c.toFixed(2)))
 }
 
-function generateDepthSummary(depth, classification, confidence) {
-  return `Prediksi kedalaman potensi: ${depth}m (${classification.range}). ${classification.desc}. Confidence: ${(confidence * 100).toFixed(0)}%.`
-}
+// ===== RECOMMENDATION =====
 
-function getDepthRecommendation(depth, classification) {
+function getRecommendation(depth, target) {
   const recs = {
-    very_shallow: '🔵 Rekomendasi: Test pit / Auger drilling (0-100m)',
-    shallow: '🟡 Rekomendasi: Diamond drilling HQ (100-300m)',
-    moderate: '🟠 Rekomendasi: Diamond drilling NQ (300-800m)',
-    deep: '🔴 Rekomendasi: Diamond drilling NQ/BQ (800-1500m)',
-    very_deep: '🟣 Rekomendasi: Deep diamond drilling BQ (>1500m)',
+    surface: '🔵 Test pit / Hand auger (0-5m)',
+    shallow: '🟡 Hand auger / Portable drill (5-15m)',
+    moderate: '🟠 Portable coring drill (15-30m)',
+    deep_shallow: '🔴 Small drilling rig (30-50m)',
   }
-  return recs[classification.id] || 'Rekomendasi: Konsultasi dengan geologist.'
+  const base = recs[classifyDepth(depth).id] || '🔵 Test pit'
+
+  if (target) {
+    if (target.key === 'cavity') return '🕳️ ' + base + ' — Cari rongga/terowongan'
+    if (target.key === 'water') return '💧 ' + base + ' — Uji akuifer dangkal'
+    if (target.key === 'vein') return '💎 ' + base + ' — Sampling urat mineral'
+    if (target.key === 'hot_spring') return '♨️ ' + base + ' — Cek manifestasi panas bumi'
+  }
+  return base
 }
 
-export { ALTERATION_DEPTH, DEPOSIT_DEPTH, MINERAL_DEPTH }
+export { SHALLOW_TARGETS, SOIL_DEPTH }

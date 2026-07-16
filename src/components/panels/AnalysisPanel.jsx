@@ -118,6 +118,11 @@ function HomeView({ analysis }) {
             <span style={{ fontSize: 22, fontWeight: 800, color: '#3b82f6' }}>{depth.depth}<small style={{ fontSize: 11, color: '#64748b' }}>m</small></span>
             <span style={{ fontSize: 11 }}>{depth.classification.emoji} {depth.classification.label}</span>
           </div>
+          {depth.target && (
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+              🎯 {depth.target.emoji} {depth.target.label}
+            </div>
+          )}
         </div>
       )}
 
@@ -363,45 +368,65 @@ function VegetationView({ analysis }) {
 function DepthView({ analysis }) {
   const { depth } = analysis
   if (!depth?.depth) return null
-  const { depth: d, minDepth, maxDepth, confidence, classification, summary, recommendedExploration } = depth
+  const { depth: d, minDepth, maxDepth, confidence, classification, target, summary, recommendedAction, layers } = depth
   return (
     <div>
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>📏 Kedalaman</div>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>📏 Prediksi Kedalaman</div>
+
+      {/* Depth Gauge */}
       <div className="panel" style={{ marginBottom: 8, textAlign: 'center' }}>
         <div style={{ fontSize: 36, fontWeight: 800, color: '#3b82f6' }}>{d}<small style={{ fontSize: 14, color: '#64748b' }}>m</small></div>
         <div style={{ fontSize: 14, fontWeight: 600, margin: '4px 0' }}>{classification.emoji} {classification.label}</div>
         <div style={{ fontSize: 11, color: '#64748b' }}>Range: {minDepth}m - {maxDepth}m</div>
         <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>Confidence: {(confidence * 100).toFixed(0)}%</div>
       </div>
-      <div className="panel" style={{ marginBottom: 8 }}>
-        <div className="panel-header">📊 Zona Alterasi</div>
-        {Object.entries({
-          silicification: { label: 'Silisifikasi', min: 0, max: 500, optimal: 200 },
-          argillic: { label: 'Argilik', min: 100, max: 1000, optimal: 400 },
-          propylitic: { label: 'Propilitik', min: 500, max: 2000, optimal: 1000 },
-          potassic: { label: 'Potasik', min: 1000, max: 3000, optimal: 1800 },
-        }).map(([key, info]) => {
-          const isActive = d >= info.min && d <= info.max
-          const isOptimal = d >= info.optimal - 100 && d <= info.optimal + 100
-          return (
-            <div key={key} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', fontSize: 10,
-              borderBottom: '1px solid #1e3a5f', borderRadius: 3,
-              background: isOptimal ? 'rgba(34,197,94,0.12)' : isActive ? 'rgba(59,130,246,0.08)' : 'transparent',
-              borderLeft: isOptimal ? '2px solid #22c55e' : 'none',
-            }}>
-              <span style={{ width: 70, fontWeight: 600 }}>{isOptimal ? '⭐' : isActive ? '▫' : ' '} {info.label}</span>
-              <span style={{ width: 60, color: '#64748b' }}>{info.min}m-{info.max}m</span>
-            </div>
-          )
-        })}
-      </div>
+
+      {/* Target */}
+      {target && (
+        <div className="panel" style={{ marginBottom: 8 }}>
+          <div className="panel-header">🎯 Target Terdeteksi</div>
+          <div style={{ textAlign: 'center', padding: 8 }}>
+            <div style={{ fontSize: 32, marginBottom: 4 }}>{target.emoji}</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{target.label}</div>
+            <div style={{ fontSize: 11, color: '#94a3b8' }}>{target.desc}</div>
+            <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>Optimal depth: ~{target.optimal}m</div>
+          </div>
+        </div>
+      )}
+
+      {/* Depth Profile */}
+      {layers && layers.length > 0 && (
+        <div className="panel" style={{ marginBottom: 8 }}>
+          <div className="panel-header">📊 Profil Kedalaman</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {layers.map((l, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', borderRadius: 4, fontSize: 10,
+                background: l.isTarget ? 'rgba(59,130,246,0.15)' : getDepthBg(l.emoji),
+                border: l.isTarget ? '1px solid #3b82f6' : '1px solid transparent',
+              }}>
+                <span style={{ width: 35, fontWeight: 600, color: '#94a3b8' }}>{l.depth}m</span>
+                <span>{l.emoji}</span>
+                <span style={{ flex: 1 }}>{l.label}</span>
+                {l.isTarget && <span style={{ fontSize: 9, padding: '1px 5px', background: 'rgba(59,130,246,0.3)', borderRadius: 3, fontWeight: 600 }}>🎯 TARGET</span>}
+                {l.targetLabel && !l.isTarget && <span style={{ fontSize: 9, color: '#94a3b8' }}>{l.targetLabel}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ fontSize: 10, color: '#64748b', marginBottom: 8, lineHeight: 1.5 }}>{summary}</div>
-      <div style={{ padding: 8, background: '#0a0e17', border: `1px solid ${d > 800 ? '#ef4444' : d > 300 ? '#f59e0b' : '#64748b'}`, borderRadius: 6, fontSize: 11 }}>
-        {recommendedExploration}
+      <div style={{ padding: 8, background: '#0a0e17', border: `1px solid ${d <= 5 ? '#22c55e' : d <= 15 ? '#f59e0b' : '#ef4444'}`, borderRadius: 6, fontSize: 11 }}>
+        {recommendedAction}
       </div>
     </div>
   )
+}
+
+function getDepthBg(emoji) {
+  const map = { '🟢': '#0a2e1a', '🟡': '#2e2a0a', '🟠': '#2e1a0a', '🔴': '#2e0a0a', '🟣': '#1a0a2e' }
+  return map[emoji] || '#111827'
 }
 
 // ===== PROSPECTIVITY VIEW =====
