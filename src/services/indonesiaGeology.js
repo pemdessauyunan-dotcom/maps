@@ -299,6 +299,8 @@ export function getIndonesiaLithology(lat, lng, elevation = 200) {
 export function computeSpectralIndices(lithology, terrain) {
   const elevation = terrain.elevation || 200
   const slope = terrain.slope || 0
+  const lat = terrain.lat || 0
+  const lng = terrain.lng || 0
   const rockType = lithology.rockType || 'volcanic'
   
   // Rock type base spectral signatures

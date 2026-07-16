@@ -112,7 +112,7 @@ export default function App() {
 
       // Compute spectral indices
       const lithology = getIndonesiaLithology(latlng.lat, latlng.lng, elevation)
-      const spectral = computeSpectralIndices(lithology, { elevation, slope: 0 })
+      const spectral = computeSpectralIndices(lithology, { elevation, slope: 0, lat: latlng.lat, lng: latlng.lng })
 
       // Detect alteration
       const alteration = detectAlteration(spectral.indices, lithology)
