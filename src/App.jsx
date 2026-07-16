@@ -16,6 +16,7 @@ import {
 import { analyzeLineaments } from './services/lineamentAnalysis'
 import { analyzeVegetation } from './services/vegetationAnalysis'
 import { calculateProspectivity } from './services/prospectivityModel'
+import { predictDepth, ALTERATION_DEPTH } from './services/depthPrediction'
 import {
   startGpsTracking,
   stopGpsTracking as stopGps,
@@ -61,6 +62,7 @@ export default function App() {
   const [lineamentResult, setLineamentResult] = useState(null)
   const [vegetationResult, setVegetationResult] = useState(null)
   const [prospectivityResult, setProspectivityResult] = useState(null)
+  const [depthResult, setDepthResult] = useState(null)
 
   // GPS tracking
   const [gpsTracking, setGpsTracking] = useState(false)
@@ -93,6 +95,7 @@ export default function App() {
     setLineamentResult(null)
     setVegetationResult(null)
     setProspectivityResult(null)
+    setDepthResult(null)
     setActiveTab('home')
 
     try {
@@ -127,6 +130,9 @@ export default function App() {
       // NEW: Prospectivity model
       const prospectivity = calculateProspectivity(thermal, spectral, alteration, lineament, vegetation, geoInfo)
 
+      // NEW: Depth prediction
+      const depth = predictDepth(thermal, alteration, lineament, prospectivity, geoInfo)
+
       setThermalResult(thermal)
       setSpectralResult(spectral)
       setAlterationResult(alteration)
@@ -135,6 +141,7 @@ export default function App() {
       setLineamentResult(lineament)
       setVegetationResult(vegetation)
       setProspectivityResult(prospectivity)
+      setDepthResult(depth)
     } catch (err) {
       console.error('Analysis failed:', err)
     }
@@ -362,6 +369,18 @@ export default function App() {
                 </div>
               )}
               <div className="action-guide">{prospectivityResult.recommendedAction}</div>
+            </div>
+          )}
+
+          {/* Depth Prediction */}
+          {depthResult && depthResult.depth && (
+            <div className="card" onClick={() => setActiveTab('depth')} style={{ cursor: 'pointer' }}>
+              <div className="card-title">📏 Kedalaman Potensi</div>
+              <div className="depth-home">
+                <span className="depth-home-value">{depthResult.depth}<small>m</small></span>
+                <span className="depth-home-label">{depthResult.classification.emoji} {depthResult.classification.label}</span>
+              </div>
+              <div className="card-text small">Range: {depthResult.minDepth}m - {depthResult.maxDepth}m</div>
             </div>
           )}
 
@@ -699,6 +718,70 @@ export default function App() {
     )
   }
 
+  // === RENDER DEPTH TAB ===
+  const renderDepthTab = () => {
+    if (!depthResult || !depthResult.depth) return <div className="empty-state"><p>Klik peta untuk prediksi kedalaman</p></div>
+    const { depth, minDepth, maxDepth, confidence, classification, layers, summary, recommendedExploration } = depthResult
+
+    return (
+      <div className="tab-content">
+        <h3>📏 Prediksi Kedalaman</h3>
+        <div className="card">
+          <div className="depth-visual">
+            <div className="depth-value">{depth}<span className="depth-unit">m</span></div>
+            <div className={`depth-classification ${classification.id}`}>
+              {classification.emoji} {classification.label}
+            </div>
+            <div className="depth-range">Range: {minDepth}m - {maxDepth}m</div>
+            <div className="depth-confidence">Confidence: {(confidence * 100).toFixed(0)}%</div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">📊 Profil Kedalaman</div>
+          <div className="depth-bar-container">
+            {layers.map((l, i) => (
+              <div key={i} className="depth-layer" style={{ background: getDepthColor(l.emoji) }}>
+                <div className="depth-layer-label">{l.depth}m</div>
+                <div className="depth-layer-info">{l.emoji} {l.label}</div>
+                {l.alterationMatch && (
+                  <div className="depth-alteration-tag">
+                    {l.alterationMatch.optimal ? '⭐' : '▫'} {l.alterationMatch.zone}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">🧱 Zona Alterasi vs Kedalaman</div>
+          {Object.entries(ALTERATION_DEPTH).map(([key, info]) => {
+            const isActive = depth >= info.min && depth <= info.max
+            const isOptimal = depth >= info.optimal - 100 && depth <= info.optimal + 100
+            return (
+              <div key={key} className={`depth-alteration-row ${isActive ? 'active' : ''} ${isOptimal ? 'optimal' : ''}`}>
+                <span className="depth-alt-name">{isOptimal ? '⭐' : isActive ? '▫' : ' '} {info.label}</span>
+                <span className="depth-alt-range">{info.min}m - {info.max}m</span>
+                <span className="depth-alt-optimal">{info.desc}</span>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="card card-text small">{summary}</div>
+        <div className={`action-guide ${depth > 800 ? 'high' : depth > 300 ? 'moderate' : 'low'}`}>
+          {recommendedExploration}
+        </div>
+      </div>
+    )
+  }
+
+  function getDepthColor(emoji) {
+    const map = { '🟢': '#1a4731', '🟡': '#4a3d1a', '🟠': '#4a2a1a', '🔴': '#4a1a1a', '🟣': '#2a1a4a' }
+    return map[emoji] || '#1c2333'
+  }
+
   // === RENDER GPS TAB ===
   const renderGpsTab = () => (
     <div className="tab-content">
@@ -759,6 +842,7 @@ export default function App() {
                 ['alteration', '🧱 Alterasi'],
                 ['lineament', '🧵 Lineament'],
                 ['vegetation', '🌿 Vegetasi'],
+                ['depth', '📏 Kedalaman'],
                 ['prospectivity', '🎯 Prospek'],
                 ['gps', '📍 GPS'],
                 ['profile', '📈 Profil'],
@@ -779,6 +863,7 @@ export default function App() {
               {activeTab === 'lineament' && renderLineamentTab()}
               {activeTab === 'vegetation' && renderVegetationTab()}
               {activeTab === 'prospectivity' && renderProspectivityTab()}
+              {activeTab === 'depth' && renderDepthTab()}
               {activeTab === 'gps' && renderGpsTab()}
               {activeTab === 'profile' && renderProfileTab()}
             </div>

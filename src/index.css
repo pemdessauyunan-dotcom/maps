@@ -418,3 +418,31 @@ body {
 
 /* ===== LOADING ===== */
 .loading { text-align: center; padding: 20px; font-size: 13px; color: var(--text-muted); }
+
+/* ===== DEPTH TAB ===== */
+.depth-visual { text-align: center; padding: 12px; }
+.depth-value { font-size: 48px; font-weight: 800; color: var(--accent); }
+.depth-unit { font-size: 20px; font-weight: 400; color: var(--text-muted); }
+.depth-classification { font-size: 16px; font-weight: 700; margin: 4px 0; }
+.depth-classification.very_shallow { color: var(--green); }
+.depth-classification.shallow { color: var(--yellow); }
+.depth-classification.moderate { color: var(--orange); }
+.depth-classification.deep { color: var(--red); }
+.depth-classification.very_deep { color: #b388ff; }
+.depth-range { font-size: 12px; color: var(--text-muted); }
+.depth-confidence { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+.depth-bar-container { display: flex; flex-direction: column; gap: 3px; }
+.depth-layer { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; font-size: 11px; }
+.depth-layer-label { width: 50px; font-weight: 700; color: var(--text); }
+.depth-layer-info { flex: 1; }
+.depth-alteration-tag { font-size: 9px; padding: 1px 4px; background: rgba(255,255,255,0.1); border-radius: 3px; }
+.depth-alteration-row { display: flex; align-items: center; gap: 6px; padding: 5px 6px; font-size: 10px; border-bottom: 1px solid var(--border); border-radius: 3px; }
+.depth-alteration-row.active { background: rgba(88,166,255,0.08); }
+.depth-alteration-row.optimal { background: rgba(63,185,80,0.12); border-left: 2px solid var(--green); }
+.depth-alt-name { width: 80px; font-weight: 600; }
+.depth-alt-range { width: 70px; color: var(--text-muted); }
+.depth-alt-optimal { flex: 1; color: var(--text-dim); font-size: 9px; }
+.depth-home { display: flex; align-items: baseline; gap: 8px; }
+.depth-home-value { font-size: 24px; font-weight: 800; color: var(--accent); }
+.depth-home-value small { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+.depth-home-label { font-size: 12px; }
