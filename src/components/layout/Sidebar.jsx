@@ -21,7 +21,7 @@ const NAV_GROUPS = [
   }
 ]
 
-export default function Sidebar({ activeTab, onTabChange, collapsed, onToggle }) {
+export default function Sidebar({ activeTab, onTabChange, collapsed, onToggle, children }) {
   return (
     <div className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <button onClick={onToggle} style={{
@@ -55,6 +55,11 @@ export default function Sidebar({ activeTab, onTabChange, collapsed, onToggle })
               ))}
             </div>
           ))}
+
+          {/* Content area */}
+          <div className="sidebar-content" style={{ flex: 1, overflow: 'auto', padding: '0 8px 12px' }}>
+            {children}
+          </div>
         </>
       )}
     </div>
