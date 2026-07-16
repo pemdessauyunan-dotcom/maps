@@ -121,7 +121,8 @@ export default function App() {
       const epithermal = analyzeEpithermal(lithology, spectral.indices, alteration)
 
       // NEW: Lineament analysis
-      const terrainGrid = await fetchTerrainGrid(latlng.lat, latlng.lng)
+      let terrainGrid = []
+      try { terrainGrid = await fetchTerrainGrid(latlng.lat, latlng.lng) } catch {}
       const lineament = analyzeLineaments(terrainGrid, latlng)
 
       // NEW: Vegetation stress analysis
@@ -945,7 +946,7 @@ function ProfileClickHandler({ onStartEnd }) {
 }
 
 // === FETCH TERRAIN GRID FOR LINEAMENT ANALYSIS ===
-async function fetchTerrainGrid(lat, lng, radius = 0.5, gridSize = 7) {
+async function fetchTerrainGrid(lat, lng, radius = 0.5, gridSize = 3) {
   const points = []
   const latStep = (radius * 2) / (gridSize - 1) / 111
   const lngStep = latStep / Math.cos(lat * Math.PI / 180)
